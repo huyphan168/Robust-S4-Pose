@@ -7,7 +7,7 @@ class InputDistortion:
         self.temporal_distr = temporal_distr 
     
     def get_mask(self):
-        mask = np.array([1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]) 
+        mask = np.ones(17) 
         if self.layout == "h36m":
             if self.body_parts == "legs":
                 mask[1:7] = 0
@@ -28,10 +28,8 @@ class InputDistortion:
                 raise NotImplementedError
         return mask
 
-    def __call__(self, inputs):
+    def __apply_spatial_distortion(self, arr):
         msk = self.get_mask()
-        import ipdb; ipdb.set_trace()
-        arr = np.copy(inputs)
         if   self.type == 'none':
             return arr
 
@@ -56,6 +54,30 @@ class InputDistortion:
             raise NotImplementedError
         return arr
     
+    def __get_temporal_mask(self, l, ratio):
+        len_keep = int(l * (1 - ratio))
+        noise = np.random.rand(l)  # noise in [0, 1]
+        # sort noise for each sample
+        ids_shuffle = np.argsort(noise)  # ascend: small is keep, large is removed
+        ids_restore = np.argsort(ids_shuffle)
+        # generate the binary mask: 0 is keep, 1 is remove
+        mask = np.ones(l)
+        mask[:len_keep] = 0
+        # unshuffle to get the binary mask
+        mask = np.take(mask, indices=ids_restore)
+        return mask
+
+    def __call__(self, inputs):
+        arr = np.copy(inputs)
+        if self.temporal_distr == 'None' or None:
+            arr = self.__apply_spatial_distortion(inputs) 
+        else:
+            ratio = float(self.temporal_distr)
+            l     = arr.shape[1] if len(arr.shape)==4 else arr.shape[0]
+            appl_idx  = self.__get_temporal_mask(l, ratio).astype(bool) 
+            arr[appl_idx] = self.__apply_spatial_distortion(arr[appl_idx])
+        return arr
+
     def remain_joints(self, outputs):
         msk = self.get_mask().astype(bool)
         return outputs[...,msk, :]

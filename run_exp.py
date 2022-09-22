@@ -903,10 +903,11 @@ else:
             'mpjve'  : errors_vel
             })
 
-        file_name = osp.join("eval_results", "%s_%s_%s.csv" % (
+        file_name = osp.join("eval_results", "%s_%s_%s%s.csv" % (
             args.evaluate.split('.')[0],
             args.distortion_type,
-            args.distortion_parts
+            args.distortion_parts,
+            "_%s" % args.distortion_temporal if args.distortion_temporal != 'None' else '' 
         ))
         df.round(2).to_csv(file_name, index=False)
         
