@@ -5,7 +5,9 @@
 # LICENSE file in the root directory of this source tree.
 #
 
+from email.mime import image
 import os
+from common.input_distortion import InputDistortion
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"]="1"
 
@@ -28,6 +30,8 @@ from common.generators import ChunkedGenerator, UnchunkedGenerator
 from time import time
 from common.utils import deterministic_random
 
+import pandas as pd
+import os.path as osp
 args = parse_args()
 print(args)
 
@@ -653,23 +657,27 @@ if not args.evaluate:
                 plt.savefig(os.path.join(args.checkpoint, 'loss_2d.png'))
             plt.close('all')
 
+inp_distr = InputDistortion(args.distortion_parts, args.distortion_type, args.distortion_temporal)
+
 # Evaluate
 def evaluate(test_generator, action=None, return_predictions=False, use_trajectory_model=False):
     epoch_loss_3d_pos = 0
     epoch_loss_3d_pos_procrustes = 0
     epoch_loss_3d_pos_scale = 0
     epoch_loss_3d_vel = 0
+
     with torch.no_grad():
         if not use_trajectory_model:
             model_pos.eval()
         else:
             model_traj.eval()
         N = 0
+    
         for _, batch, batch_2d in test_generator.next_epoch():
             inputs_2d = torch.from_numpy(batch_2d.astype('float32'))
             if torch.cuda.is_available():
                 inputs_2d = inputs_2d.cuda()
-
+            
             # Positional model
             if not use_trajectory_model:
                 predicted_3d_pos = model_pos(inputs_2d)
@@ -693,6 +701,10 @@ def evaluate(test_generator, action=None, return_predictions=False, use_trajecto
             inputs_3d[:, :, 0] = 0    
             if test_generator.augment_enabled():
                 inputs_3d = inputs_3d[:1]
+            
+            # mask 3d outputs for computing losses
+            predicted_3d_pos = inp_distr.remain_joints(predicted_3d_pos)
+            inputs_3d        = inp_distr.remain_joints(inputs_3d)
 
             error = mpjpe(predicted_3d_pos, inputs_3d)
             epoch_loss_3d_pos_scale += inputs_3d.shape[0]*inputs_3d.shape[1] * n_mpjpe(predicted_3d_pos, inputs_3d).item()
@@ -707,7 +719,7 @@ def evaluate(test_generator, action=None, return_predictions=False, use_trajecto
 
             # Compute velocity error
             epoch_loss_3d_vel += inputs_3d.shape[0]*inputs_3d.shape[1] * mean_velocity_error(predicted_3d_pos, inputs)
-            
+
     if action is None:
         print('----------')
     else:
@@ -722,25 +734,21 @@ def evaluate(test_generator, action=None, return_predictions=False, use_trajecto
     print('Protocol #3 Error (N-MPJPE):', e3, 'mm')
     print('Velocity Error (MPJVE):', ev, 'mm')
     print('----------')
-
     return e1, e2, e3, ev
 
-
-if args.render:
-    print('Rendering...')
-    
-    input_keypoints = keypoints[args.viz_subject][args.viz_action][args.viz_camera].copy()
+def gen_animation(input_keypoints):
     ground_truth = None
     if args.viz_subject in dataset.subjects() and args.viz_action in dataset[args.viz_subject]:
         if 'positions_3d' in dataset[args.viz_subject][args.viz_action]:
             ground_truth = dataset[args.viz_subject][args.viz_action]['positions_3d'][args.viz_camera].copy()
+    
     if ground_truth is None:
         print('INFO: this action is unlabeled. Ground truth will not be rendered.')
-        
     gen = UnchunkedGenerator(None, None, [input_keypoints],
                              pad=pad, causal_shift=causal_shift, augment=args.test_time_augmentation,
                              kps_left=kps_left, kps_right=kps_right, joints_left=joints_left, joints_right=joints_right)
     prediction = evaluate(gen, return_predictions=True)
+    
     if model_traj is not None and ground_truth is None:
         prediction_traj = evaluate(gen, return_predictions=True, use_trajectory_model=True)
         prediction += prediction_traj
@@ -750,41 +758,56 @@ if args.render:
         # Predictions are in camera space
         np.save(args.viz_export, prediction)
     
-    if args.viz_output is not None:
-        if ground_truth is not None:
-            # Reapply trajectory
-            trajectory = ground_truth[:, :1]
-            ground_truth[:, 1:] += trajectory
-            prediction += trajectory
-        
-        # Invert camera transformation
-        cam = dataset.cameras()[args.viz_subject][args.viz_camera]
-        if ground_truth is not None:
-            prediction = camera_to_world(prediction, R=cam['orientation'], t=cam['translation'])
-            ground_truth = camera_to_world(ground_truth, R=cam['orientation'], t=cam['translation'])
-        else:
-            # If the ground truth is not available, take the camera extrinsic params from a random subject.
-            # They are almost the same, and anyway, we only need this for visualization purposes.
-            for subject in dataset.cameras():
-                if 'orientation' in dataset.cameras()[subject][args.viz_camera]:
-                    rot = dataset.cameras()[subject][args.viz_camera]['orientation']
-                    break
-            prediction = camera_to_world(prediction, R=rot, t=0)
-            # We don't have the trajectory, but at least we can rebase the height
-            prediction[:, :, 2] -= np.min(prediction[:, :, 2])
-        
-        anim_output = {'Reconstruction': prediction}
-        if ground_truth is not None and not args.viz_no_ground_truth:
-            anim_output['Ground truth'] = ground_truth
-        
-        input_keypoints = image_coordinates(input_keypoints[..., :2], w=cam['res_w'], h=cam['res_h'])
-        
-        from common.visualization import render_animation
-        render_animation(input_keypoints, keypoints_metadata, anim_output,
-                         dataset.skeleton(), dataset.fps(), args.viz_bitrate, cam['azimuth'], args.viz_output,
-                         limit=args.viz_limit, downsample=args.viz_downsample, size=args.viz_size,
-                         input_video_path=args.viz_video, viewport=(cam['res_w'], cam['res_h']),
-                         input_video_skip=args.viz_skip)
+    if ground_truth is not None:
+        # Reapply trajectory
+        trajectory = ground_truth[:, :1]
+        ground_truth[:, 1:] += trajectory
+        prediction += trajectory
+    
+    # Invert camera transformation
+    cam = dataset.cameras()[args.viz_subject][args.viz_camera]
+    if ground_truth is not None:
+        prediction = camera_to_world(prediction, R=cam['orientation'], t=cam['translation'])
+        ground_truth = camera_to_world(ground_truth, R=cam['orientation'], t=cam['translation'])
+    else:
+        # If the ground truth is not available, take the camera extrinsic params from a random subject.
+        # They are almost the same, and anyway, we only need this for visualization purposes.
+        for subject in dataset.cameras():
+            if 'orientation' in dataset.cameras()[subject][args.viz_camera]:
+                rot = dataset.cameras()[subject][args.viz_camera]['orientation']
+                break
+        prediction = camera_to_world(prediction, R=rot, t=0)
+        # We don't have the trajectory, but at least we can rebase the height
+        prediction[:, :, 2] -= np.min(prediction[:, :, 2])
+    return prediction, ground_truth
+    
+if args.render:
+    print('Rendering...')
+    
+    input_keypoints       = keypoints[args.viz_subject][args.viz_action][args.viz_camera].copy()
+    noisy_input_keypoints = inp_distr(input_keypoints)
+    
+    # Predict from clean inputs:
+    prediction, ground_truth = gen_animation(input_keypoints)
+    prediction_from_noise, _ = gen_animation(noisy_input_keypoints)    
+
+    anim_output = {
+        'Given Noisy Input': prediction_from_noise,
+        'Given Clean Input': prediction,
+        }
+    if ground_truth is not None and not args.viz_no_ground_truth:
+        anim_output['Ground truth'] = ground_truth
+    
+    input_keypoints       = image_coordinates(input_keypoints[..., :2], w=cam['res_w'], h=cam['res_h'])
+    noisy_input_keypoints = image_coordinates(noisy_input_keypoints[..., :2], w=cam['res_w'], h=cam['res_h']) 
+    
+    ignore_joints = np.where(inp_distr.get_mask() == 0)[0]
+    from common.visualization import dist_render_animation, render_animation
+    dist_render_animation(noisy_input_keypoints, keypoints_metadata, anim_output,
+                        dataset.skeleton(), dataset.fps(), args.viz_bitrate, cam['azimuth'], args.viz_output,
+                        limit=args.viz_limit, downsample=args.viz_downsample, size=args.viz_size,
+                        input_video_path=args.viz_video, viewport=(cam['res_w'], cam['res_h']),
+                        input_video_skip=args.viz_skip, ignore_joints=ignore_joints)
     
 else:
     print('Evaluating...')
@@ -832,8 +855,9 @@ else:
         errors_p2 = []
         errors_p3 = []
         errors_vel = []
-
+        actions_name = []
         for action_key in actions.keys():
+            actions_name.append(action_key)
             if action_filter is not None:
                 found = False
                 for a in action_filter:
@@ -844,6 +868,8 @@ else:
                     continue
 
             poses_act, poses_2d_act = fetch_actions(actions[action_key])
+
+            poses_2d_act = [inp_distr(i) for i in poses_2d_act]
             gen = UnchunkedGenerator(None, poses_act, poses_2d_act,
                                      pad=pad, causal_shift=causal_shift, augment=args.test_time_augmentation,
                                      kps_left=kps_left, kps_right=kps_right, joints_left=joints_left, joints_right=joints_right)
@@ -853,11 +879,37 @@ else:
             errors_p3.append(e3)
             errors_vel.append(ev)
 
-        print('Protocol #1   (MPJPE) action-wise average:', round(np.mean(errors_p1), 1), 'mm')
-        print('Protocol #2 (P-MPJPE) action-wise average:', round(np.mean(errors_p2), 1), 'mm')
-        print('Protocol #3 (N-MPJPE) action-wise average:', round(np.mean(errors_p3), 1), 'mm')
-        print('Velocity      (MPJVE) action-wise average:', round(np.mean(errors_vel), 2), 'mm')
+        # Save evaluation results to a pandas file
+        m_p1 = round(np.mean(errors_p1), 2)
+        m_p2 = round(np.mean(errors_p2), 2)
+        m_p3 = round(np.mean(errors_p3), 2)
+        m_v  = round(np.mean(errors_vel), 2)
+        print('Protocol #1   (MPJPE) action-wise average:', m_p1 ,'mm')
+        print('Protocol #2 (P-MPJPE) action-wise average:', m_p2, 'mm')
+        print('Protocol #3 (N-MPJPE) action-wise average:', m_p3, 'mm')
+        print('Velocity      (MPJVE) action-wise average:', m_v, 'mm')
 
+        actions_name.append("average")
+        errors_p1.append(m_p1)
+        errors_p2.append(m_p2)
+        errors_p3.append(m_p3)
+        errors_vel.append(m_v)
+
+        df = pd.DataFrame({
+            'action' : actions_name, 
+            'mpjpe'  : errors_p1,
+            'p-mpjpe': errors_p2,
+            'n-mpjpe': errors_p3,
+            'mpjve'  : errors_vel
+            })
+
+        file_name = osp.join("eval_results", "%s_%s_%s.csv" % (
+            args.evaluate.split('.')[0],
+            args.distortion_type,
+            args.distortion_parts
+        ))
+        df.round(2).to_csv(file_name, index=False)
+        
     if not args.by_subject:
         run_evaluation(all_actions, action_filter)
     else:

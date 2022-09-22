@@ -1,0 +1,7 @@
+**/__pycache__/
+data/
+plots/
+checkpoint/
+inference/
+eval_results/
+output.gif

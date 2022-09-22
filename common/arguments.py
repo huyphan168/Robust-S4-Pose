@@ -76,6 +76,11 @@ def parse_args():
     parser.set_defaults(data_augmentation=True)
     parser.set_defaults(test_time_augmentation=True)
     
+    # Input distortion
+    parser.add_argument('--distortion-type', type=str, default="none")
+    parser.add_argument('--distortion-parts', type=str, default='legs')
+    parser.add_argument('--distortion-temporal', type=str, default=None)
+    
     args = parser.parse_args()
     # Check invalid configuration
     if args.resume and args.evaluate:
