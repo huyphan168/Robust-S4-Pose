@@ -6,8 +6,6 @@
 #
 
 import os
-os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"]="1"
 
 import numpy as np
 
@@ -20,7 +18,7 @@ import torch.optim as optim
 import os
 import sys
 import errno
-
+from tqdm import tqdm
 from common.camera import *
 from common.model import *
 from common.loss import *
@@ -30,6 +28,8 @@ from common.utils import deterministic_random
 
 args = parse_args()
 print(args)
+os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"]=args.gpu
 
 try:
     # Create checkpoint directory if it does not exist
@@ -403,7 +403,7 @@ if not args.evaluate:
             losses_2d_train_unlabeled.append(epoch_loss_2d_train_unlabeled / N_semi)
         else:
             # Regular supervised scenario
-            for _, batch_3d, batch_2d in train_generator.next_epoch():
+            for _, batch_3d, batch_2d in tqdm(train_generator.next_epoch(), total=train_generator.num_batches):
                 inputs_3d = torch.from_numpy(batch_3d.astype('float32'))
                 inputs_2d = torch.from_numpy(batch_2d.astype('float32'))
                 if torch.cuda.is_available():

@@ -8,7 +8,7 @@
 import torch
 import numpy as np
 import hashlib
-
+import yaml
 def wrap(func, *args, unsqueeze=False):
     """
     Wrap a torch function so it can be called with NumPy arrays.
@@ -45,3 +45,14 @@ def deterministic_random(min_value, max_value, data):
     digest = hashlib.sha256(data.encode()).digest()
     raw_value = int.from_bytes(digest[:4], byteorder='little', signed=False)
     return int(raw_value / (2**32 - 1) * (max_value - min_value)) + min_value
+
+def load_cfg_from_file(args, file):
+    with open (file) as fi:
+        cfg = yaml.safe_load(fi)
+        _cfg= dict()
+        for k in cfg:
+            _k = k.replace('-','_')
+            assert _k in args.__dict__, 'Config key "%s" not found' % _k
+            _cfg[_k] = cfg[k]
+        args.__dict__.update(_cfg)
+    return args

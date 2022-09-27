@@ -20,18 +20,22 @@ def parse_args():
                         help='unlabeled subjects separated by comma for self-supervision')
     parser.add_argument('-a', '--actions', default='*', type=str, metavar='LIST',
                         help='actions to train/test on, separated by comma, or * for all')
-    parser.add_argument('-c', '--checkpoint', default='checkpoint', type=str, metavar='PATH',
+    parser.add_argument('-c', '--checkpoint', default='auto', type=str, metavar='PATH',
                         help='checkpoint directory')
-    parser.add_argument('--checkpoint-frequency', default=10, type=int, metavar='N',
+    parser.add_argument('--checkpoint-frequency', default=40, type=int, metavar='N',
                         help='create a checkpoint every N epochs')
     parser.add_argument('-r', '--resume', default='', type=str, metavar='FILENAME',
                         help='checkpoint to resume (file name)')
     parser.add_argument('--evaluate', default='', type=str, metavar='FILENAME', help='checkpoint to evaluate (file name)')
     parser.add_argument('--render', action='store_true', help='visualize a particular video')
     parser.add_argument('--by-subject', action='store_true', help='break down error by subject (on evaluation)')
-    parser.add_argument('--export-training-curves', action='store_true', help='save training curves as .png images')
+    parser.add_argument('--export-training-curves', action='store_true', default=True, help='save training curves as .png images')
+    parser.add_argument('--seed', type=int, default=1606, help=" set random seed")
+    parser.add_argument('--gpu', type=str, default="0", help="set gpu id")
+    parser.add_argument('-cfg', '--cfg-file', type=str, default=None, help="path to config file")
 
     # Model arguments
+    parser.add_argument('-m', '--model', default="VideoPose3D", help="model to be used")
     parser.add_argument('-s', '--stride', default=1, type=int, metavar='N', help='chunk size to use during training')
     parser.add_argument('-e', '--epochs', default=60, type=int, metavar='N', help='number of training epochs')
     parser.add_argument('-b', '--batch-size', default=1024, type=int, metavar='N', help='batch size in terms of predicted frames')
@@ -77,10 +81,21 @@ def parse_args():
     parser.set_defaults(test_time_augmentation=True)
     
     # Input distortion
-    parser.add_argument('--distortion-type', type=str, default="none")
-    parser.add_argument('--distortion-parts', type=str, default='legs')
-    parser.add_argument('--distortion-temporal', type=str, default=None)
+    parser.add_argument('--train-distortion-type',    type=str, default="None")
+    parser.add_argument('--train-distortion-parts',   type=str, default='None')
+    parser.add_argument('--train-distortion-temporal',type=str, default='None')
+    parser.add_argument('--train-gen-conf-score',     type=str, default='None')
+
+    parser.add_argument('--test-distortion-type',     type=str, default="None")
+    parser.add_argument('--test-distortion-parts',    type=str, default='None')
+    parser.add_argument('--test-distortion-temporal', type=str, default='None')
+    parser.add_argument('--test-gen-conf-score',      type=str, default='None')
+    # Eval filter
+    parser.add_argument('--loss-ignore-parts', type=str, default='None')
+    parser.add_argument('--eval-ignore-parts', type=str, default='None')
     
+
+
     args = parser.parse_args()
     # Check invalid configuration
     if args.resume and args.evaluate:

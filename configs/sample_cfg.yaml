@@ -1,0 +1,14 @@
+# train:
+train-distortion-type:  gauss_0.1
+train-distortion-parts: rand_0.3
+train-distortion-temporal:  0.3
+train-conf-score: gauss
+
+# test:
+test-distortion-type:  None
+test-distortion-parts: None
+test-distortion-temporal:  None
+test-conf-score: binary
+
+loss-ignore_parts: None
+eval-ignore_parts: None

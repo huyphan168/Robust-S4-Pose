@@ -235,5 +235,4 @@ class UnchunkedGenerator:
                 batch_2d = np.concatenate((batch_2d, batch_2d), axis=0)
                 batch_2d[1, :, :, 0] *= -1
                 batch_2d[1, :, self.kps_left + self.kps_right] = batch_2d[1, :, self.kps_right + self.kps_left]
-
             yield batch_cam, batch_3d, batch_2d
