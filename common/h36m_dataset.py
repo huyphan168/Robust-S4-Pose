@@ -207,7 +207,7 @@ h36m_cameras_extrinsic_params = {
 }
 
 class Human36mDataset(MocapDataset):
-    def __init__(self, path, remove_static_joints=True):
+    def __init__(self, path, remove_static_joints=True, include_subjects = None):
         super().__init__(fps=50, skeleton=h36m_skeleton)
         
         self._cameras = copy.deepcopy(h36m_cameras_extrinsic_params)
@@ -235,6 +235,9 @@ class Human36mDataset(MocapDataset):
         
         self._data = {}
         for subject, actions in data.items():
+            if include_subjects is not None:
+                if subject not in include_subjects:
+                    continue
             self._data[subject] = {}
             for action_name, positions in actions.items():
                 self._data[subject][action_name] = {
@@ -252,4 +255,3 @@ class Human36mDataset(MocapDataset):
             
     def supports_semi_supervised(self):
         return True
-   

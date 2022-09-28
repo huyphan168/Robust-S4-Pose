@@ -47,6 +47,9 @@ def deterministic_random(min_value, max_value, data):
     return int(raw_value / (2**32 - 1) * (max_value - min_value)) + min_value
 
 def load_cfg_from_file(args, file):
+    if file is None:
+        return args
+        
     with open (file) as fi:
         cfg = yaml.safe_load(fi)
         _cfg= dict()

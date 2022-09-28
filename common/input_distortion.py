@@ -79,9 +79,6 @@ class InputDistortion:
         mask = np.take(mask, indices=ids_restore)
         return mask
 
-    def __get_conf_score(self, type, added_noise=None):
-        pass
-
     def __apply_input_distortion(self, inputs, body_parts, type, temporal_distr, gen_conf_score):
         assert len(inputs.shape) == 3 
         f, j, d = inputs.shape

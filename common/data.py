@@ -1,12 +1,13 @@
 from common.camera import *
 from common.utils import deterministic_random
 
-def load_data(args):
+def load_data(args, all_subjects = None):
     print('Loading dataset...')
     dataset_path = 'data/data_3d_' + args.dataset + '.npz'
     if args.dataset == 'h36m':
         from common.h36m_dataset import Human36mDataset
-        dataset = Human36mDataset(dataset_path)
+        dataset = Human36mDataset(dataset_path, include_subjects=all_subjects)
+        
     elif args.dataset.startswith('humaneva'):
         from common.humaneva_dataset import HumanEvaDataset
         dataset = HumanEvaDataset(dataset_path)
@@ -31,15 +32,22 @@ def load_data(args):
 
 class DataFetcher:
     def __init__(self, args) -> None:
-        dataset = load_data(args)
-        print('Loading 2D detections...')
-        keypoints = np.load('data/data_2d_' + args.dataset + '_' + args.keypoints + '.npz', allow_pickle=True)
+        # Prepare training/testing subjects
+        subjects_train = [s for s in args.subjects_train.split(',') if s!= '' ]
+        if not args.render:
+            subjects_test = [s for s in args.subjects_test.split(',') if s!= '' ]
+        else:
+            subjects_test = [args.viz_subject]
+
+        dataset = load_data(args, all_subjects = subjects_train + subjects_test)
+        kpt_file  = 'data/data_2d_' + args.dataset + '_' + args.keypoints + '.npz'
+        keypoints = np.load(kpt_file, allow_pickle=True)
+        print('Loading 2D detections from %s' % kpt_file)
         keypoints_metadata = keypoints['metadata'].item()
         keypoints_symmetry = keypoints_metadata['keypoints_symmetry']
         self.kps_left, self.kps_right = list(keypoints_symmetry[0]), list(keypoints_symmetry[1])
         self.joints_left, self.joints_right = list(dataset.skeleton().joints_left()), list(dataset.skeleton().joints_right())
         keypoints = keypoints['positions_2d'].item()
-        
 
         for subject in dataset.subjects():
             assert subject in keypoints, 'Subject {} is missing from the 2D detections dataset'.format(subject)
@@ -63,17 +71,13 @@ class DataFetcher:
         for subject in keypoints.keys():
             for action in keypoints[subject]:
                 for cam_idx, kps in enumerate(keypoints[subject][action]):
+                    if kps is None:
+                        print('2D keypoints of subject %s action %s is None' % (subject, action))
+                        continue
                     # Normalize camera frame
                     cam = dataset.cameras()[subject][cam_idx]
                     kps[..., :2] = normalize_screen_coordinates(kps[..., :2], w=cam['res_w'], h=cam['res_h'])
                     keypoints[subject][action][cam_idx] = kps
-
-        # Prepare training/testing subjects
-        subjects_train = args.subjects_train.split(',')
-        if not args.render:
-            subjects_test = args.subjects_test.split(',')
-        else:
-            subjects_test = [args.viz_subject]
 
         action_filter = None if args.actions == '*' else args.actions.split(',')
         if action_filter is not None:

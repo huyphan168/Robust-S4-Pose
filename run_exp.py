@@ -30,13 +30,11 @@ from common.utils import deterministic_random, load_cfg_from_file
 from tqdm import tqdm
 import pandas as pd
 import os.path as osp
-
 # Parse argument
 args = parse_args()
 # Load arguments from file
 args = load_cfg_from_file(args, args.cfg_file)
 print(args, "\n")
-
 # Set GPU device
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"]=args.gpu
@@ -124,16 +122,17 @@ if args.resume or args.evaluate:
     model_pos_train.load_state_dict(checkpoint['model_pos'])
     model_pos.load_state_dict(checkpoint['model_pos'])
     
+    model_traj = None
     if args.evaluate and 'model_traj' in checkpoint:
-        # Load trajectory model if it contained in the checkpoint (e.g. for inference in the wild)
-        model_traj = TemporalModel(poses_valid_2d[0].shape[-2], poses_valid_2d[0].shape[-1], 1,
-                            filter_widths=filter_widths, causal=args.causal, dropout=args.dropout, channels=args.channels,
-                            dense=args.dense)
-        if torch.cuda.is_available():
-            model_traj = model_traj.cuda()
-        model_traj.load_state_dict(checkpoint['model_traj'])
-    else:
-        model_traj = None
+        if checkpoint['model_traj'] is not None:
+            # Load trajectory model if it contained in the checkpoint (e.g. for inference in the wild)
+            model_traj = TemporalModel(poses_valid_2d[0].shape[-2], poses_valid_2d[0].shape[-1], 1,
+                                filter_widths=filter_widths, causal=args.causal, dropout=args.dropout, channels=args.channels,
+                                dense=args.dense)
+            if torch.cuda.is_available():
+                model_traj = model_traj.cuda()
+            model_traj.load_state_dict(checkpoint['model_traj'])
+        
 
 # Generate test data  
 test_generator = UnchunkedGenerator(cameras_valid, poses_valid, poses_valid_2d,
@@ -512,12 +511,13 @@ else:
             'n-mpjpe': errors_p3,
             'mpjve'  : errors_vel
             })
-
-        file_name = osp.join("eval_results", "%s_%s_%s%s.csv" % (
+        fold_name = osp.join("eval_results", osp.basename(args.checkpoint))
+        os.makedirs(fold_name, exist_ok=True)
+        file_name = osp.join(fold_name, "%s_%s_%s%s.csv" % (
             args.evaluate.split('.')[0],
-            args.distortion_type,
-            args.distortion_parts,
-            "_%s" % args.distortion_temporal if args.distortion_temporal != 'None' else '' 
+            args.test_distortion_type,
+            args.test_distortion_parts,
+            "_%s" % args.test_distortion_temporal if args.test_distortion_temporal != 'None' else '' 
         ))
         df.round(2).to_csv(file_name, index=False)
         
