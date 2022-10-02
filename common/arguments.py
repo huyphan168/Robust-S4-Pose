@@ -29,15 +29,16 @@ def parse_args():
     parser.add_argument('--evaluate', default='', type=str, metavar='FILENAME', help='checkpoint to evaluate (file name)')
     parser.add_argument('--render', action='store_true', help='visualize a particular video')
     parser.add_argument('--by-subject', action='store_true', help='break down error by subject (on evaluation)')
-    parser.add_argument('--export-training-curves', action='store_true', default=True, help='save training curves as .png images')
+    parser.add_argument('--export-training-curves', action='store_true', default=False, help='save training curves as .png images')
     parser.add_argument('--seed', type=int, default=1606, help=" set random seed")
     parser.add_argument('--gpu', type=str, default="0", help="set gpu id")
     parser.add_argument('-cfg', '--cfg-file', type=str, default=None, help="path to config file")
 
     # Model arguments
     parser.add_argument('-m', '--model', default="VideoPose3D", help="model to be used")
+    parser.add_argument('-l', '--loss', default='mpjpe', help="loss function to be used")
     parser.add_argument('-s', '--stride', default=1, type=int, metavar='N', help='chunk size to use during training')
-    parser.add_argument('-e', '--epochs', default=60, type=int, metavar='N', help='number of training epochs')
+    parser.add_argument('-e', '--epochs', default=80, type=int, metavar='N', help='number of training epochs')
     parser.add_argument('-b', '--batch-size', default=1024, type=int, metavar='N', help='batch size in terms of predicted frames')
     parser.add_argument('-drop', '--dropout', default=0.25, type=float, metavar='P', help='dropout probability')
     parser.add_argument('-lr', '--learning-rate', default=0.001, type=float, metavar='LR', help='initial learning rate')
@@ -90,10 +91,10 @@ def parse_args():
     parser.add_argument('--test-distortion-parts',    type=str, default='None')
     parser.add_argument('--test-distortion-temporal', type=str, default='None')
     parser.add_argument('--test-gen-conf-score',      type=str, default='None')
+    parser.add_argument('--drop-conf-score', action='store_true', default=False)
     # Eval filter
     parser.add_argument('--loss-ignore-parts', type=str, default='None')
     parser.add_argument('--eval-ignore-parts', type=str, default='None')
-    
 
 
     args = parser.parse_args()

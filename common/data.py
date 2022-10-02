@@ -7,7 +7,7 @@ def load_data(args, all_subjects = None):
     if args.dataset == 'h36m':
         from common.h36m_dataset import Human36mDataset
         dataset = Human36mDataset(dataset_path, include_subjects=all_subjects)
-        
+
     elif args.dataset.startswith('humaneva'):
         from common.humaneva_dataset import HumanEvaDataset
         dataset = HumanEvaDataset(dataset_path)
@@ -30,6 +30,13 @@ def load_data(args, all_subjects = None):
                 anim['positions_3d'] = positions_3d
     return dataset
 
+cam_map = {
+    0: '54138969',
+    1: '55011271',
+    2: '58860488',
+    3: '60457274',
+}
+
 class DataFetcher:
     def __init__(self, args) -> None:
         # Prepare training/testing subjects
@@ -48,7 +55,20 @@ class DataFetcher:
         self.kps_left, self.kps_right = list(keypoints_symmetry[0]), list(keypoints_symmetry[1])
         self.joints_left, self.joints_right = list(dataset.skeleton().joints_left()), list(dataset.skeleton().joints_right())
         keypoints = keypoints['positions_2d'].item()
-
+        # Check detected keypoints:
+        for subject in dataset.subjects():
+            for action in dataset[subject].keys():
+                for cam_idx in range(len(keypoints[subject][action])):
+                    if keypoints[subject][action][cam_idx] is None:
+                        print("%s/%s.%s.mp4" %(subject, action, cam_map[cam_idx]))
+                    else:
+                        mocap_length = dataset[subject][action]['positions_3d'][cam_idx].shape[0]
+                        if keypoints[subject][action][cam_idx].shape[0] < mocap_length:
+                            print("%s/%s.%s.mp4" %(subject, action, cam_map[cam_idx]))
+                            print("[ERROR] Video %s-%s-%d has %d frames, expected at least %d" % (
+                                subject, action, cam_idx,
+                                keypoints[subject][action][cam_idx].shape[0], mocap_length
+                                ))
         for subject in dataset.subjects():
             assert subject in keypoints, 'Subject {} is missing from the 2D detections dataset'.format(subject)
             for action in dataset[subject].keys():
@@ -67,7 +87,6 @@ class DataFetcher:
                         keypoints[subject][action][cam_idx] = keypoints[subject][action][cam_idx][:mocap_length]
 
                 assert len(keypoints[subject][action]) == len(dataset[subject][action]['positions_3d'])
-                
         for subject in keypoints.keys():
             for action in keypoints[subject]:
                 for cam_idx, kps in enumerate(keypoints[subject][action]):

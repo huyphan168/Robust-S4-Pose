@@ -24,6 +24,10 @@ def weighted_mpjpe(predicted, target, w):
     assert w.shape[0] == predicted.shape[0]
     return torch.mean(w * torch.norm(predicted - target, dim=len(target.shape)-1))
 
+def conf_mpjpe(predicted, target, conf_scr):
+    assert predicted.shape == target.shape
+    return torch.mean(torch.norm((predicted - target) * conf_scr[..., None], dim=len(target.shape)-1))
+
 def p_mpjpe(predicted, target):
     """
     Pose error: MPJPE after rigid alignment (scale, rotation, and translation),

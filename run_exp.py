@@ -47,12 +47,14 @@ torch.manual_seed(args.seed)
 # Create checkpoint directory
 if args.checkpoint == "auto":
     checkpoint_root = "checkpoint"
-    args.checkpoint = osp.join(checkpoint_root, "%s-%s-a%s-b%d-dj_%s-dp_%s-df%s-lss_exc_%s-conf_%s" % (
+    args.checkpoint = osp.join(checkpoint_root, "%s-%s-a%s-b%d-dj_%s-dp_%s-df%s-lss_exc_%s-conf_%s%s" % (
         args.model, args.keypoints, args.architecture, args.batch_size,
         args.train_distortion_type, args.train_distortion_parts, args.train_distortion_temporal,
-        args.loss_ignore_parts, args.train_gen_conf_score
+        args.loss_ignore_parts, 
+        'det' if ('hrnet' in args.keypoints) and  args.drop_conf_score == False else args.train_gen_conf_score,
+        '_' + args.loss if args.loss != 'mpjpe' else ''
         ))
-    print("Saving checkpoint to ", args.checkpoint, "\n")
+print("Saving checkpoint to ", args.checkpoint, "\n")
 try:
     # Create checkpoint directory if it does not exist
     os.makedirs(args.checkpoint)
@@ -75,9 +77,8 @@ poses_valid_2d = [inp_distr.get_test_inputs(i) for i in poses_valid_2d]
 filter_widths = [int(x) for x in args.architecture.split(',')]
 
 if args.model == "VideoPose3D":
-    num_joints_in = poses_valid_2d[0].shape[-2]
-    in_features   = poses_valid_2d[0].shape[-1]
-
+    num_joints_in = poses_valid_2d[0].shape[-2] if len(poses_valid_2d) > 0 else 17
+    in_features   = poses_valid_2d[0].shape[-1] if len(poses_valid_2d) > 0 else 2
     if not args.disable_optimizations and not args.dense and args.stride == 1:
         # Use optimized model for single-frame predictions
         model_pos_train = TemporalModelOptimized1f(num_joints_in, in_features, dtf.dataset.skeleton().num_joints(),
@@ -214,7 +215,10 @@ if not args.evaluate:
             predicted_3d_pos = inp_distr.get_loss_joints(predicted_3d_pos)
             inputs_3d        = inp_distr.get_loss_joints(inputs_3d)
             
-            loss_3d_pos = mpjpe(predicted_3d_pos, inputs_3d)
+            if   args.loss == 'mpjpe':
+                loss_3d_pos = mpjpe(predicted_3d_pos, inputs_3d)
+            elif args.loss == "conf_mpjpe":
+                loss_3d_pos = conf_mpjpe(predicted_3d_pos, inputs_3d, inputs_2d[...,-1])
             epoch_loss_3d_train += inputs_3d.shape[0]*inputs_3d.shape[1] * loss_3d_pos.item()
             N += inputs_3d.shape[0]*inputs_3d.shape[1]
 
@@ -328,9 +332,10 @@ if not args.evaluate:
             }, chk_path)
         if epoch % args.checkpoint_frequency == 0:
             save_ckpt(os.path.join(args.checkpoint, 'epoch_{}.bin'.format(epoch)))
-        if losses_3d_valid[-1] * 1000 < min_loss:
-            save_ckpt(os.path.join(args.checkpoint, 'best.bin'.format(epoch)))
-            min_loss = losses_3d_valid[-1] * 1000
+        if len(losses_3d_valid) > 0:
+            if  losses_3d_valid[-1] * 1000 < min_loss:
+                save_ckpt(os.path.join(args.checkpoint, 'best.bin'.format(epoch)))
+                min_loss = losses_3d_valid[-1] * 1000
         
         # Save training curves after every epoch, as .png images (if requested)
         if args.export_training_curves and epoch > 3:
@@ -513,8 +518,9 @@ else:
             })
         fold_name = osp.join("eval_results", osp.basename(args.checkpoint))
         os.makedirs(fold_name, exist_ok=True)
-        file_name = osp.join(fold_name, "%s_%s_%s%s.csv" % (
+        file_name = osp.join(fold_name, "%s%s_%s_%s%s.csv" % (
             args.evaluate.split('.')[0],
+            "_%s" % args.keypoints if args.keypoints != 'cpn_ft_h36m_dbb' else '',
             args.test_distortion_type,
             args.test_distortion_parts,
             "_%s" % args.test_distortion_temporal if args.test_distortion_temporal != 'None' else '' 

@@ -7,26 +7,33 @@ class InputDistortion:
         self.loss_ignore_parts = args.loss_ignore_parts
         self.eval_ignore_parts = args.eval_ignore_parts
 
-    def get_mask(self, parts):
-        mask = np.ones(17) # 1: keep, 0: distort 
+    def get_mask(self, parts, out_shape= None):
+        if out_shape != None:
+            mask = np.ones(out_shape) # 1: keep, 0: distort 
+        else:
+            assert 'rand' not in self.loss_ignore_parts 
+            mask = np.ones((1,17,1))
         if self.layout == "h36m":
             if   parts == "legs":
-                mask[1:7] = 0
+                mask[:,1:7,:] = 0
             elif parts == "legs+root":
-                mask[:7]  = 0
+                mask[:,:7,:]  = 0
             elif parts == "arm-right":
-                mask[14:17]=0
+                mask[:,14:17,:]=0
             elif parts == "arm-left" :
-                mask[11:14]=0
+                mask[:,11:14,:]=0
             elif parts == "arms":
-                mask[11:]  =0
+                mask[:,11:,:]  =0
             elif parts == "all": 
-                mask[:]    =0
+                mask   = 0
             elif parts == "None":
                 pass
+            elif 'randfix' in parts:
+                p = float(parts.split('_')[1])
+                mask[:,np.random.rand(out_shape[1]) < p,:] = 0
             elif 'rand' in parts:
                 p = float(parts.split('_')[1])
-                mask = (np.random.rand(17) < p).astype(np.float)
+                mask[np.random.rand(*out_shape[:-1]) <p, :] = 0
             else:
                 raise NotImplementedError
         elif self.layout == "coco":
@@ -34,10 +41,13 @@ class InputDistortion:
                 mask[11:] = 0
             else:
                 raise NotImplementedError
-        return mask
+        if out_shape != None:
+            return mask
+        else:
+            return mask[0,:,0]
 
     def __apply_spatial_distortion(self, arr, body_parts, type):
-        msk = self.get_mask(body_parts)
+        msk = self.get_mask(body_parts, arr.shape)
         added_noise = np.zeros_like(arr)
         if   type == 'None':
             pass
@@ -45,22 +55,26 @@ class InputDistortion:
             arr *= msk[:,None]
 
         elif type == "mean":
-            arr[...,(1-msk).astype(bool),:] = arr[...,msk.astype(bool),:].mean(axis=1)[...,None,:]
+            arr[(1-msk).astype(bool)] = arr[msk.astype(bool)].mean(axis=1)[...,None,:]
             
         elif "gauss" in type:
             std = float(type.split('_')[1])
-            added_noise[...,(1-msk).astype(bool),:] =  np.random.normal(scale=std,size=added_noise[...,(1-msk).astype(bool),:].shape)
+            added_noise[(1-msk).astype(bool)] =  np.random.normal(scale=std,size=added_noise[(1-msk).astype(bool)].shape)
             arr += added_noise
         
+        elif type == "impulse":
+            arr[(1-msk).astype(bool)] = np.where(
+                    np.random.rand(*arr[(1-msk).astype(bool)].shape) < 0.5, -1.0, 1.0
+                )
         elif type == "constant":
-            arr[...,(1-msk).astype(bool),:] = arr[...,None,0,:]
+            arr[(1-msk).astype(bool)] = arr[...,None,0,:]
         
         elif type == "exclude":
-            arr = arr[...,(msk).astype(bool),:]
+            arr = arr[(msk).astype(bool)]
 
         elif "joint" in type:
             joint_idx = int(type.split('_')[1])
-            arr[...,(1-msk).astype(bool),:] = arr[...,None,joint_idx,:]
+            arr[(1-msk).astype(bool)] = arr[...,None,joint_idx,:]
         
         else:
             raise NotImplementedError
@@ -82,7 +96,10 @@ class InputDistortion:
     def __apply_input_distortion(self, inputs, body_parts, type, temporal_distr, gen_conf_score):
         assert len(inputs.shape) == 3 
         f, j, d = inputs.shape
-        # l     = inputs.shape[1] if len(arr.shape)==4 else inputs.shape[0]
+        if self.args.drop_conf_score == True:
+            inputs = inputs[...,:-1]
+            return inputs
+
         if temporal_distr != 'None':
             ratio = float(temporal_distr)
             appl_msk  = self.__get_temporal_mask(f, ratio).astype(bool) 
@@ -95,7 +112,7 @@ class InputDistortion:
         if gen_conf_score != 'None':
             conf_scr = np.ones((f,j,1))
             if gen_conf_score == 'binary':
-                conf_scr[appl_msk] = msk[None,:,None]
+                conf_scr[appl_msk] = msk[...,:1]
             elif gen_conf_score == 'gauss':
                 assert "gauss" in type
                 std = float(type.split('_')[1])
