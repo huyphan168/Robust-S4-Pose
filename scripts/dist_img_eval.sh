@@ -13,4 +13,4 @@ python run_exp.py \
     -c checkpoint/$1 \
     -arc 3,3,3 \
     --evaluate epoch_80.bin \
-    --drop-conf-score
+    # --drop-conf-score

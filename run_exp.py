@@ -78,7 +78,7 @@ filter_widths = [int(x) for x in args.architecture.split(',')]
 
 if args.model == "VideoPose3D":
     num_joints_in = poses_valid_2d[0].shape[-2] if len(poses_valid_2d) > 0 else 17
-    in_features   = poses_valid_2d[0].shape[-1] if len(poses_valid_2d) > 0 else 2
+    in_features   = poses_valid_2d[0].shape[-1] if len(poses_valid_2d) > 0 else 3 if args.drop_conf_score == False else 2
     if not args.disable_optimizations and not args.dense and args.stride == 1:
         # Use optimized model for single-frame predictions
         model_pos_train = TemporalModelOptimized1f(num_joints_in, in_features, dtf.dataset.skeleton().num_joints(),

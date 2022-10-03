@@ -246,13 +246,31 @@ def plot_dist_imgs(args):
         "epoch_80",
         "VP3D on mix-aug-train-hrnet"),
 
+        ("VideoPose3D-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_det",
+        "epoch_80",
+        "VP3D on mix-aug-train-hrnet with det. CONF SCR input"),
+
         ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
         "epoch_80",
         "VP3D on CLEAN hrnet det."),
 
+        # ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_det",
+        # "epoch_80",
+        # "VP3D on CLEAN hrnet det. with CONF SCR input"),
+
         ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_0.5-df0.5-lss_exc_None-conf_None",
         "epoch_80",
         "VP3D on CLEAN + noise $\sigma=0.3$ hrnet det."),
+
+
+        ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_0.5-df0.5-lss_exc_None-conf_None",
+        "epoch_80",
+        "VP3D on CLEAN + noise $\sigma=0.3$ hrnet det."),
+
+        ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_laplace_0.02-dp_rand_0.3-df0.3-lss_exc_None-conf_det",
+        "epoch_80",
+        "VP3D on CLEAN + LAPLACE noise $scl=0.02$ hrnet det."), 
+        
     ]
     plot_img_distortion(args, exps_list)
 

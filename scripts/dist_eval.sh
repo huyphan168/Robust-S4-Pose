@@ -12,4 +12,4 @@ python run_exp.py -k cpn_ft_h36m_dbb -arc 3,3,3 -c checkpoint/$1 \
     --test-distortion-parts legs \
     --eval-ignore-parts legs\
     --test-distortion-temporal $DISTR_TEMP \
-    # --test-gen-conf-score gauss \
+    --test-gen-conf-score gauss \

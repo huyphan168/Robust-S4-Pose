@@ -62,10 +62,16 @@ class InputDistortion:
             added_noise[(1-msk).astype(bool)] =  np.random.normal(scale=std,size=added_noise[(1-msk).astype(bool)].shape)
             arr += added_noise
         
+        elif "laplace" in type:
+            scl = float(type.split('_')[1])
+            added_noise[(1-msk).astype(bool)] =  np.random.laplace(scale=scl,size=added_noise[(1-msk).astype(bool)].shape)
+            arr += added_noise
+
         elif type == "impulse":
             arr[(1-msk).astype(bool)] = np.where(
                     np.random.rand(*arr[(1-msk).astype(bool)].shape) < 0.5, -1.0, 1.0
                 )
+        
         elif type == "constant":
             arr[(1-msk).astype(bool)] = arr[...,None,0,:]
         
