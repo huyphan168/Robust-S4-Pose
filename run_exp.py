@@ -158,6 +158,11 @@ if not args.evaluate:
     cameras_train, poses_train, poses_train_2d = dtf.fetch_train()
     # Apply distortion on input training data 
     poses_train_2d = [inp_distr.get_train_inputs(i) for i in poses_train_2d]
+    # from matplotlib import pyplot as plt
+    # plt.plot(poses_train_2d[0][:,11,0])
+    # plt.plot(poses_train_2d[0][:,11,1])
+    # plt.savefig("abc.png", bbox_inches="tight")
+    # import ipdb; ipdb.set_trace()
     # Prepare optimizers
     lr = args.learning_rate
     optimizer = optim.Adam(model_pos_train.parameters(), lr=lr, amsgrad=True)    
@@ -400,22 +405,26 @@ def evaluate(test_generator, action=None, return_predictions=False, use_trajecto
                 inputs_3d = inputs_3d[:1]
             
             # mask 3d outputs for computing losses
-            predicted_3d_pos = inp_distr.get_eval_joints(predicted_3d_pos)
-            inputs_3d        = inp_distr.get_eval_joints(inputs_3d)
+            if inputs_3d.shape[-1] == 4:
+                eval_msk  = inputs_3d[...,3].type(torch.bool)
+                inputs_3d = inputs_3d[...,:3]
+                n_frames  = eval_msk.any(dim=-1).sum().item()
+            else:
+                predicted_3d_pos = inp_distr.get_eval_joints(predicted_3d_pos)
+                inputs_3d        = inp_distr.get_eval_joints(inputs_3d)
+                eval_msk         = None
+                n_frames         = inputs_3d.shape[0]*inputs_3d.shape[1]
 
-            error = mpjpe(predicted_3d_pos, inputs_3d)
-            epoch_loss_3d_pos_scale += inputs_3d.shape[0]*inputs_3d.shape[1] * n_mpjpe(predicted_3d_pos, inputs_3d).item()
+            error = mpjpe(predicted_3d_pos, inputs_3d, eval_msk=eval_msk)
+            epoch_loss_3d_pos_scale +=  n_frames * n_mpjpe(predicted_3d_pos, inputs_3d).item()
 
-            epoch_loss_3d_pos += inputs_3d.shape[0]*inputs_3d.shape[1] * error.item()
+            epoch_loss_3d_pos += n_frames * error.item()
             N += inputs_3d.shape[0] * inputs_3d.shape[1]
-            
             inputs = inputs_3d.cpu().numpy().reshape(-1, inputs_3d.shape[-2], inputs_3d.shape[-1])
             predicted_3d_pos = predicted_3d_pos.cpu().numpy().reshape(-1, inputs_3d.shape[-2], inputs_3d.shape[-1])
-
-            epoch_loss_3d_pos_procrustes += inputs_3d.shape[0]*inputs_3d.shape[1] * p_mpjpe(predicted_3d_pos, inputs)
-
+            epoch_loss_3d_pos_procrustes += n_frames * p_mpjpe(predicted_3d_pos, inputs)
             # Compute velocity error
-            epoch_loss_3d_vel += inputs_3d.shape[0]*inputs_3d.shape[1] * mean_velocity_error(predicted_3d_pos, inputs)
+            epoch_loss_3d_vel += n_frames * mean_velocity_error(predicted_3d_pos, inputs)
 
     if action is None:
         print('----------')
@@ -433,6 +442,51 @@ def evaluate(test_generator, action=None, return_predictions=False, use_trajecto
     print('----------')
     return e1, e2, e3, ev
 
+def gen_animation(input_keypoints):
+    ground_truth = None
+    if args.viz_subject in dtf.dataset.subjects() and args.viz_action in dtf.dataset[args.viz_subject]:
+        if 'positions_3d' in dtf.dataset[args.viz_subject][args.viz_action]:
+            ground_truth = dtf.dataset[args.viz_subject][args.viz_action]['positions_3d'][args.viz_camera].copy()
+    
+    if ground_truth is None:
+        print('INFO: this action is unlabeled. Ground truth will not be rendered.')
+    gen = UnchunkedGenerator(None, None, [input_keypoints],
+                             pad=pad, causal_shift=causal_shift, augment=args.test_time_augmentation,
+                             kps_left=dtf.kps_left, kps_right=dtf.kps_right, joints_left=dtf.joints_left, joints_right=dtf.joints_right)
+    prediction = evaluate(gen, return_predictions=True)
+    
+    if model_traj is not None and ground_truth is None:
+        prediction_traj = evaluate(gen, return_predictions=True, use_trajectory_model=True)
+        prediction += prediction_traj
+    
+    if args.viz_export is not None:
+        print('Exporting joint positions to', args.viz_export)
+        # Predictions are in camera space
+        np.save(args.viz_export, prediction)
+    
+    if ground_truth is not None:
+        # Reapply trajectory
+        trajectory = ground_truth[:, :1]
+        ground_truth[:, 1:] += trajectory
+        prediction += trajectory
+    
+    # Invert camera transformation
+    cam = dtf.dataset.cameras()[args.viz_subject][args.viz_camera]
+    if ground_truth is not None:
+        prediction = camera_to_world(prediction, R=cam['orientation'], t=cam['translation'])
+        ground_truth = camera_to_world(ground_truth, R=cam['orientation'], t=cam['translation'])
+    else:
+        # If the ground truth is not available, take the camera extrinsic params from a random subject.
+        # They are almost the same, and anyway, we only need this for visualization purposes.
+        for subject in dtf.dataset.cameras():
+            if 'orientation' in dtf.dataset.cameras()[subject][args.viz_camera]:
+                rot = dtf.dataset.cameras()[subject][args.viz_camera]['orientation']
+                break
+        prediction = camera_to_world(prediction, R=rot, t=0)
+        # We don't have the trajectory, but at least we can rebase the height
+        prediction[:, :, 2] -= np.min(prediction[:, :, 2])
+    return prediction, ground_truth
+
 ################### RENDERING ###################
 if args.render:
     print('Rendering...')
@@ -440,21 +494,24 @@ if args.render:
     noisy_input_keypoints = inp_distr.get_test_inputs(input_keypoints)
     
     # Predict from clean inputs:
-    prediction, ground_truth = gen_animation(input_keypoints)
-    prediction_from_noise, _ = gen_animation(noisy_input_keypoints)    
+    # prediction, ground_truth = gen_animation(input_keypoints)
+    prediction_from_noise, ground_truth = gen_animation(noisy_input_keypoints)    
 
     anim_output = {
         'Given Noisy Input': prediction_from_noise,
-        'Given Clean Input': prediction,
+        # 'Given Clean Input': prediction,
         }
     if ground_truth is not None and not args.viz_no_ground_truth:
         anim_output['Ground truth'] = ground_truth
-    
-    input_keypoints       = image_coordinates(input_keypoints[..., :2], w=cam['res_w'], h=cam['res_h'])
+    from common.h36m_dataset import h36m_cameras_intrinsic_params
+    cam = h36m_cameras_intrinsic_params[args.viz_camera]
+
+    # input_keypoints       = image_coordinates(input_keypoints[..., :2], w=cam['res_w'], h=cam['res_h'])
     noisy_input_keypoints = image_coordinates(noisy_input_keypoints[..., :2], w=cam['res_w'], h=cam['res_h']) 
-    
-    ignore_joints = np.where(inp_distr.get_mask(inp_distr.body_parts) == 0)[0]
+    ignore_joints = None
+    # ignore_joints = np.where(inp_distr.get_mask(inp_distr.body_parts) == 0)[0]
     from common.visualization import dist_render_animation, render_animation
+    
     dist_render_animation(noisy_input_keypoints, dtf.keypoints_metadata, anim_output,
                         dtf.dataset.skeleton(), dtf.dataset.fps(), args.viz_bitrate, cam['azimuth'], args.viz_output,
                         limit=args.viz_limit, downsample=args.viz_downsample, size=args.viz_size,
@@ -482,7 +539,6 @@ else:
                     continue
 
             poses_act, poses_2d_act = dtf.fetch_test_actions(actions[action_key])
-
             poses_2d_act = [inp_distr.get_test_inputs(i) for i in poses_2d_act]
             gen = UnchunkedGenerator(None, poses_act, poses_2d_act,
                                      pad=pad, causal_shift=causal_shift, augment=args.test_time_augmentation,
@@ -518,11 +574,12 @@ else:
             })
         fold_name = osp.join("eval_results", osp.basename(args.checkpoint))
         os.makedirs(fold_name, exist_ok=True)
-        file_name = osp.join(fold_name, "%s%s_%s_%s%s.csv" % (
+        file_name = osp.join(fold_name, "%s%s_%s_%s_%s%s.csv" % (
             args.evaluate.split('.')[0],
             "_%s" % args.keypoints if args.keypoints != 'cpn_ft_h36m_dbb' else '',
             args.test_distortion_type,
             args.test_distortion_parts,
+            args.eval_ignore_parts,
             "_%s" % args.test_distortion_temporal if args.test_distortion_temporal != 'None' else '' 
         ))
         df.round(2).to_csv(file_name, index=False)

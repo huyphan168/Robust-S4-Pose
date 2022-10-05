@@ -8,14 +8,16 @@
 import torch
 import numpy as np
 
-def mpjpe(predicted, target):
+def mpjpe(predicted, target, eval_msk = None):
     """
     Mean per-joint position error (i.e. mean Euclidean distance),
     often referred to as "Protocol #1" in many papers.
     """
     assert predicted.shape == target.shape
-    return torch.mean(torch.norm(predicted - target, dim=len(target.shape)-1))
-    
+    if eval_msk == None:
+        return torch.mean(torch.norm(predicted - target, dim=len(target.shape)-1))
+    else:
+        return torch.mean(torch.norm((predicted - target)[eval_msk], dim=-1))
 def weighted_mpjpe(predicted, target, w):
     """
     Weighted mean per-joint position error (i.e. mean Euclidean distance)

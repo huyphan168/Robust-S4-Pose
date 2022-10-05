@@ -46,6 +46,7 @@ class DataFetcher:
         else:
             subjects_test = [args.viz_subject]
 
+        # Loading 2D keypoints detections
         dataset = load_data(args, all_subjects = subjects_train + subjects_test)
         kpt_file  = 'data/data_2d_' + args.dataset + '_' + args.keypoints + '.npz'
         keypoints = np.load(kpt_file, allow_pickle=True)
@@ -55,6 +56,14 @@ class DataFetcher:
         self.kps_left, self.kps_right = list(keypoints_symmetry[0]), list(keypoints_symmetry[1])
         self.joints_left, self.joints_right = list(dataset.skeleton().joints_left()), list(dataset.skeleton().joints_right())
         keypoints = keypoints['positions_2d'].item()
+        
+        # Loading 2D evaluation mask
+        if 'file' in args.eval_ignore_parts:
+            msk_npy_file = "data/eval_dist_%s_%s.npz" % (args.dataset,  args.keypoints)
+            eval_dist    = np.load(msk_npy_file, allow_pickle= True)
+            self.eval_dist    = eval_dist['eval_dist'].item()   
+            self.eval_thr = float(args.eval_ignore_parts.split('_')[1])
+
         # Check detected keypoints:
         for subject in dataset.subjects():
             for action in dataset[subject].keys():
@@ -85,7 +94,8 @@ class DataFetcher:
                     if keypoints[subject][action][cam_idx].shape[0] > mocap_length:
                         # Shorten sequence
                         keypoints[subject][action][cam_idx] = keypoints[subject][action][cam_idx][:mocap_length]
-
+                        if 'file' in args.eval_ignore_parts:
+                            self.eval_dist[subject][action][cam_idx] = self.eval_dist[subject][action][cam_idx][:mocap_length]
                 assert len(keypoints[subject][action]) == len(dataset[subject][action]['positions_3d'])
         for subject in keypoints.keys():
             for action in keypoints[subject]:
@@ -130,11 +140,12 @@ class DataFetcher:
         self.all_actions = all_actions
         self.all_actions_by_subject = all_actions_by_subject
         
-    def __fetch(self, keypoints, subjects, action_filter=None, subset=1, parse_3d_poses=True):
+    def __fetch(self, keypoints, subjects, action_filter=None, subset=1, parse_3d_poses=True, fetch_test=False):
         stride   = self.downsample
         dataset  = self.dataset
         out_poses_3d = []
         out_poses_2d = []
+        out_eval_msk_3d  = []
         out_camera_params = []
         for subject in subjects:
             for action in keypoints[subject].keys():
@@ -162,7 +173,11 @@ class DataFetcher:
                     poses_3d = dataset[subject][action]['positions_3d']
                     assert len(poses_3d) == len(poses_2d), 'Camera count mismatch'
                     for i in range(len(poses_3d)): # Iterate across cameras
-                        out_poses_3d.append(poses_3d[i])
+                        ps3d = poses_3d[i]
+                        if fetch_test and 'file' in self.args.eval_ignore_parts:
+                            eval_msk_3d = self.eval_dist[subject][action][i] < self.eval_thr
+                            ps3d = np.concatenate([ps3d, eval_msk_3d[...,None]],axis=-1)
+                        out_poses_3d.append(ps3d)
         
         if len(out_camera_params) == 0:
             out_camera_params = None
@@ -186,7 +201,7 @@ class DataFetcher:
     
 
     def fetch_test(self):
-        return self.__fetch(self.keypoints, self.subjects_test, self.action_filter)
+        return self.__fetch(self.keypoints, self.subjects_test, self.action_filter, fetch_test=True)
     
     def fetch_train(self):
         return self.__fetch(
@@ -205,8 +220,12 @@ class DataFetcher:
             poses_3d = self.dataset[subject][action]['positions_3d']
             assert len(poses_3d) == len(poses_2d), 'Camera count mismatch'
             for i in range(len(poses_3d)): # Iterate across cameras
-                out_poses_3d.append(poses_3d[i])
-
+                ps3d = poses_3d[i]
+                if 'file' in self.args.eval_ignore_parts:
+                    eval_msk_3d = self.eval_dist[subject][action][i] < self.eval_thr
+                    ps3d = np.concatenate([ps3d, eval_msk_3d[...,None]],axis=-1)
+                out_poses_3d.append(ps3d)
+                
         stride = self.args.downsample
         if stride > 1:
             # Downsample as requested

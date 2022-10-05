@@ -18,32 +18,37 @@ def parse_args():
     return args
     
 
-def plot_exp(ax, eval_folder, to_run, shift=0.0, name = None, hatch=None, mode='line'):
-    mpjpe_vals = []
+def plot_exp(ax, eval_folder, to_run, shift=0.0, name = None, hatch=None, mode='line', metrics='all'):
+    
     distr_names= []
     colors     = []
-    
-    for file, n, c in to_run:
-        file_path = osp.join(eval_folder, "%s.csv" % file)
-        if osp.exists(file_path):
-            print(file_path)
-            df = pd.read_csv(file_path)
-            a_mpjpe = float(df.loc[df['action'] == 'average']['mpjpe'])
-            mpjpe_vals.append(a_mpjpe)
-            distr_names.append(n)
-            colors.append(c)
-        else:
-            print("File not found %s" % file_path)
-    if mode == 'line':
-        ax.plot(mpjpe_vals,marker='o', label=name)
-    elif mode == 'bar':
-        for i in range(len(distr_names)):
-            ax.bar(i + shift, mpjpe_vals[i], width = 0.2, color = colors[i], hatch=hatch)
+    if type(metrics) == str:
+        metrics = [metrics]
+    for m in metrics:
+        mpjpe_vals = []
+        for file, n, c in to_run:
+            file_path = osp.join(eval_folder, "%s%s.csv" % (file,
+                "_file_%s" % m if m != 'all' else ''
+            ))
+            if osp.exists(file_path):
+                print(file_path)
+                df = pd.read_csv(file_path)
+                a_mpjpe = float(df.loc[df['action'] == 'average']['mpjpe'])
+                mpjpe_vals.append(a_mpjpe)
+                distr_names.append(n)
+                colors.append(c)
+            else:
+                print("File not found %s" % file_path)
+        if mode == 'line':
+            ax.plot(mpjpe_vals,marker='o', label=name if m=='all' else "[$MPJPE_{\leq%s}$] %s" % (m, name))
+        elif mode == 'bar':
+            for i in range(len(distr_names)):
+                ax.bar(i + shift, mpjpe_vals[i], width = 0.2, color = colors[i], hatch=hatch)
 
 def plot_exp_series(args, exp_series, x_ticks, xlabel="Distortion Type", ylabel="MPJPE", 
-        out_file="mpjpe_plot.png", title="Plot", mode = 'line'):
+        out_file="mpjpe_plot.png", title="Plot", mode = 'line', metrics = 'all'):
     patterns= ['//','+', 'o', '-', '\\', '.']
-    plt.figure(figsize=(14,5))
+    plt.figure(figsize=(14,8))
     for i, exp_id in enumerate(exp_series):
         plot_exp(plt.gca(), 
             osp.join(args.eval_results, exp_id),
@@ -51,7 +56,8 @@ def plot_exp_series(args, exp_series, x_ticks, xlabel="Distortion Type", ylabel=
             name=exp_series[exp_id]['label'],
             shift= (i - len(exp_series)//2)*0.4 + 0.2,
             hatch= patterns[i],
-            mode = mode
+            mode = mode,
+            metrics = metrics
         )
     plt.xticks(np.arange(len(x_ticks)), x_ticks)
     plt.xlabel(xlabel)
@@ -143,27 +149,28 @@ def plot_time_distortion(args, exps_list, out_file="mpjpe_plot.png",
         )
 
 def plot_img_distortion(args, exps_list, out_file="mpjpe_img_distortion.png", 
-                    distortion_parts="legs", distortion_temporal = "0.3"):
+                dist_thr = None):
     exp_series = {}
     for i, (exp, ckpt, label) in enumerate(exps_list):
         model_name = "VideoPose3D"
         color = 'bisque'
         distortion_types  = [
             ('clean', 'gray'),
-            ('brightness',color),
+            # ('brightness',color),
             ('gaussian_noise',color),
             ('impulse_noise',color),
             ('temporal' ,color),
             ('erase' ,color),
             ('crop' ,color),
             ('motion_blur' ,color),
-            ('fog' ,color),
+            # ('fog' ,color),
         ]
         list_plot = []
         for t, c in distortion_types:
             list_plot.append((
-                '%s_hrnet_%s_None_None' % (
-                    ckpt, t
+                '%s_hrnet_%s_None_None%s' % (
+                    ckpt, t,
+                    "_file_%s" % dist_thr if str(dist_thr) is not None else '' 
                 ),
                 t,
                 c
@@ -171,13 +178,52 @@ def plot_img_distortion(args, exps_list, out_file="mpjpe_img_distortion.png",
             )
         exp_series[exp] = {'label': label, 'exps': list_plot}
     x_ticks= [i[0] for i in distortion_types]
-    title  = "[%s] Performance on distored images input (%s)" % (model_name, distortion_parts)
+    title  = "[%s] Performance on distored images input" % (model_name)
     plot_exp_series(args,
         exp_series,
         x_ticks,
         title=title,
         out_file=out_file,
         # mode='bar'
+        )
+
+def plot_mpjpe_rel_mpjpe(args, exps_list, out_file="rel-mpjpe-compare.png", 
+                dist_thr = None):
+    exp_series = {}
+    color = 'bisque'
+     
+    distortion_types  = [
+        ('clean', 'gray'),
+        # ('brightness',color),
+        ('gaussian_noise',color),
+        ('impulse_noise',color),
+        ('temporal' ,color),
+        ('erase' ,color),
+        ('crop' ,color),
+        ('motion_blur' ,color),
+        # ('fog' ,color),
+    ]
+    for i, (exp, ckpt, label) in enumerate(exps_list):
+        model_name = "VideoPose3D"  
+        list_plot     = []
+        list_plot_all = []
+        for t, c in distortion_types:
+            list_plot_all.append((
+                '%s_hrnet_%s_None_None' % (
+                    ckpt, t, 
+                ), t, c
+            )
+            )
+        exp_series[exp] = {'label': label, 'exps': list_plot_all}
+    x_ticks= [i[0] for i in distortion_types]
+    title  = "[%s] Performance on distored images input" % (model_name)
+    plot_exp_series(args,
+        exp_series,
+        x_ticks,
+        title=title,
+        out_file=out_file,
+        metrics =['0.1']
+        # metrics =['all',  '0.1' ,'0.05', '0.03', '0.01', '0.005']
         )
 
 def plot_dist_kpts(args):
@@ -274,9 +320,46 @@ def plot_dist_imgs(args):
     ]
     plot_img_distortion(args, exps_list)
 
+def plot_reliable_mpjpe_img_distortion(args):
+    exps_list = [
+        ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
+        "epoch_80",
+        "VP3D on CLEAN hrnet det"),
+        
+        ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.05-dp_rand_0.2-df0.2-lss_exc_None-conf_None",
+        "epoch_80",
+        "P3D on CLEAN + GAUSS noise $\sigma=0.05$ hrnet det"),
+
+        ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.1-dp_rand_0.3-df0.3-lss_exc_None-conf_None",
+        "epoch_80",
+        "P3D on CLEAN + GAUSS noise $\sigma=0.1$ hrnet det"),
+
+        ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_0.5-df0.5-lss_exc_None-conf_None",
+        "epoch_80",
+        "P3D on CLEAN + GAUSS noise $\sigma=0.3$ hrnet det"),
+
+        # ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.8-dp_rand_0.5-df0.6-lss_exc_None-conf_None",
+        # "epoch_80",
+        # "P3D on CLEAN + GAUSS noise $\sigma=0.8$ hrnet det"),
+
+        ("VideoPose3D-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
+        "epoch_80",
+        "VP3D on MIX-AUG-train hrnet det"),
+        
+        # ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_impulse_0.4-dp_rand_0.3-df0.3-lss_exc_None-conf_impulse",
+        # "epoch_80",
+        # "VP3D on CLEAN + IMPULSE noise hrnet"),
+        # ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_laplace_0.02-dp_rand_0.3-df0.3-lss_exc_None-conf_None",
+        # "epoch_80",
+        # "VP3D on CLEAN + LAPLACE noise hrnet det."),
+    ]
+    plot_mpjpe_rel_mpjpe(args, exps_list, out_file="reliable-mpjpe.png", dist_thr=0.05)
+
+    
 def main(args):
     # plot_dist_kpts(args)    
-    plot_dist_imgs(args)
+    # plot_dist_imgs(args)
+    plot_reliable_mpjpe_img_distortion(args)
 
 if __name__ == "__main__":
     args = parse_args()

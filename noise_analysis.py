@@ -1,4 +1,5 @@
 import argparse
+from cProfile import label
 import os.path as osp
 from turtle import color
 from matplotlib import pyplot as plt
@@ -42,8 +43,10 @@ def plot_err_distribution(args):
     # for subject in ['S9']
     diff = []
     conf = []
+    clean_seq = []
+    dist_seq  = []
     for subj in ['S9']: #subjects:
-        for act in ['Walking']: # clean_kpts[subj].keys():
+        for act in ['Greeting']: # clean_kpts[subj].keys():
             for cam in cameras:
                 clean = normalize(clean_kpts[subj][act][cam], cam)
                 dist  = normalize(dist_kpts[subj][act][cam], cam) 
@@ -51,20 +54,40 @@ def plot_err_distribution(args):
                 e = clean[:length,...,:2] - dist[:length, ...,:2] 
                 diff.append(e)
                 conf.append(dist[:length,...,-1] - clean[:length,...,-1])
-                
+                clean_seq.append(clean[:length])
+                dist_seq.append(dist[:length])
                 break
                 # import ipdb; ipdb.set_trace()
     diff = np.vstack(diff)
     diff = np.sqrt((diff**2).sum(axis=-1))
     conf = np.vstack(conf)
+    clean_seq = np.vstack(clean_seq)
+    dist_seq  = np.vstack(dist_seq)
     conf_t = np.diff(conf[:,8].flatten())
     diff_t = np.diff(diff[:,8].flatten())
     
-    f, axs = plt.subplots(2,1,figsize=(10,8))
+    # f, axs = plt.subplots(2,1,figsize=(10,8))
     
-    axs[0].plot(conf_t)
-    axs[0].plot(diff_t)
-    axs[1].plot(np.abs(conf_t) * np.abs(diff_t))
+    # axs[0].plot(conf_t)
+    # axs[0].plot(diff_t)
+    # axs[1].plot(np.abs(conf_t) * np.abs(diff_t))
+    # plt.savefig("test2.png", bbox_inches='tight')
+
+    f, axs = plt.subplots(4,1,figsize=(10,10))
+    joint_idx = 1
+    axs[0].plot(clean_seq[:,joint_idx,0], label='x')
+    axs[0].plot(clean_seq[:,joint_idx,1], label='y')
+    axs[0].set_title("Clean Images Input")
+    axs[1].plot(clean_seq[:,joint_idx,2], label='conf')
+    axs[2].plot(dist_seq[:, joint_idx,0], label='x')
+    axs[2].plot(dist_seq[:, joint_idx,1], label='y')
+    axs[2].set_title("Erase Distorted Images Input")
+    axs[3].plot(dist_seq[:, joint_idx,2], label='conf')
+    for i in range(len(axs)):
+        axs[i].legend(loc='best')
+    # axs[1].plot(clean_seq[:,11,2])
+    plt.savefig("test3.png", bbox_inches='tight')
+    
     # plt.figure(figsize=(10,8))
     # dist_diff = np.sqrt((diff**2).sum(axis=-1)).flatten()
     # conf_diff = conf.flatten()
@@ -84,8 +107,7 @@ def plot_err_distribution(args):
     # y_fit = laplace_func(x, *coeff)
     # print(coeff)
     # plt.plot(x, y_fit,color='red')
-    plt.savefig("test2.png", bbox_inches='tight')
-
+    
 def main(args):
     plot_err_distribution(args)
     

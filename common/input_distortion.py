@@ -6,7 +6,7 @@ class InputDistortion:
         self.layout = layout
         self.loss_ignore_parts = args.loss_ignore_parts
         self.eval_ignore_parts = args.eval_ignore_parts
-
+        
     def get_mask(self, parts, out_shape= None):
         if out_shape != None:
             mask = np.ones(out_shape) # 1: keep, 0: distort 
@@ -25,7 +25,7 @@ class InputDistortion:
             elif parts == "arms":
                 mask[:,11:,:]  =0
             elif parts == "all": 
-                mask   = 0
+                mask   = np.zeros(out_shape)
             elif parts == "None":
                 pass
             elif 'randfix' in parts:
@@ -52,7 +52,7 @@ class InputDistortion:
         if   type == 'None':
             pass
         elif type == "zero":
-            arr *= msk[:,None]
+            arr *= msk
 
         elif type == "mean":
             arr[(1-msk).astype(bool)] = arr[msk.astype(bool)].mean(axis=1)[...,None,:]
@@ -67,11 +67,12 @@ class InputDistortion:
             added_noise[(1-msk).astype(bool)] =  np.random.laplace(scale=scl,size=added_noise[(1-msk).astype(bool)].shape)
             arr += added_noise
 
-        elif type == "impulse":
-            arr[(1-msk).astype(bool)] = np.where(
-                    np.random.rand(*arr[(1-msk).astype(bool)].shape) < 0.5, -1.0, 1.0
-                )
-        
+        elif "impulse" in type:
+            q   = float(type.split('_')[1])
+            impl_msk = np.random.rand(*msk.shape) < q
+            impl_msk = np.logical_and(impl_msk, (1-msk).astype(bool))
+            arr[impl_msk] = np.where(np.random.rand(*arr[impl_msk].shape) <0.3, -0.5, 0.5)
+            
         elif type == "constant":
             arr[(1-msk).astype(bool)] = arr[...,None,0,:]
         
@@ -102,9 +103,9 @@ class InputDistortion:
     def __apply_input_distortion(self, inputs, body_parts, type, temporal_distr, gen_conf_score):
         assert len(inputs.shape) == 3 
         f, j, d = inputs.shape
+        arr = np.copy(inputs)
         if self.args.drop_conf_score == True:
-            inputs = inputs[...,:-1]
-            return inputs
+            arr = arr[...,:-1]
 
         if temporal_distr != 'None':
             ratio = float(temporal_distr)
@@ -112,8 +113,7 @@ class InputDistortion:
         else:
             appl_msk  = np.ones(f).astype(bool)
         
-        arr = np.copy(inputs)
-        arr[appl_msk], msk, added_noise = self.__apply_spatial_distortion(np.copy(inputs[appl_msk,:,:]), body_parts, type)
+        arr[appl_msk], msk, added_noise = self.__apply_spatial_distortion(np.copy(arr[appl_msk,:,:]), body_parts, type)
         
         if gen_conf_score != 'None':
             conf_scr = np.ones((f,j,1))
@@ -127,12 +127,14 @@ class InputDistortion:
         return arr
 
     def get_train_inputs(self, inputs):
-        return self.__apply_input_distortion(inputs, 
+        
+        tmp = self.__apply_input_distortion(inputs, 
             body_parts= self.args.train_distortion_parts,
             type      = self.args.train_distortion_type,
             temporal_distr= self.args.train_distortion_temporal,
             gen_conf_score= self.args.train_gen_conf_score    
         )
+        return tmp
 
     def get_test_inputs(self, inputs):
         return self.__apply_input_distortion(inputs, 
