@@ -92,6 +92,7 @@ def parse_args():
     parser.add_argument('--test-distortion-temporal', type=str, default='None')
     parser.add_argument('--test-gen-conf-score',      type=str, default='None')
     parser.add_argument('--drop-conf-score', action='store_true', default=False)
+    parser.add_argument('--smooth-conf-score', action='store_true', default=False)
     # Eval filter
     parser.add_argument('--loss-ignore-parts', type=str, default='None')
     parser.add_argument('--eval-ignore-parts', type=str, default='None')

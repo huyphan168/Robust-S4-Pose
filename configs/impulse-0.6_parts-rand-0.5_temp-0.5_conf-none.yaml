@@ -1,0 +1,14 @@
+# train:
+train-distortion-type:  impulse_0.6
+train-distortion-parts: rand_0.5
+train-distortion-temporal:  0.5
+train-gen-conf-score: None
+
+# test:
+test-distortion-type:  impulse_0.6
+test-distortion-parts: rand_0.5
+test-distortion-temporal:  0.5
+test-gen-conf-score: None
+
+loss-ignore_parts: None
+eval-ignore_parts: None

@@ -47,12 +47,13 @@ torch.manual_seed(args.seed)
 # Create checkpoint directory
 if args.checkpoint == "auto":
     checkpoint_root = "checkpoint"
-    args.checkpoint = osp.join(checkpoint_root, "%s-%s-a%s-b%d-dj_%s-dp_%s-df%s-lss_exc_%s-conf_%s%s" % (
+    args.checkpoint = osp.join(checkpoint_root, "%s-%s-a%s-b%d-dj_%s-dp_%s-df%s-lss_exc_%s-conf_%s%s%s" % (
         args.model, args.keypoints, args.architecture, args.batch_size,
         args.train_distortion_type, args.train_distortion_parts, args.train_distortion_temporal,
         args.loss_ignore_parts, 
         'det' if ('hrnet' in args.keypoints) and  args.drop_conf_score == False else args.train_gen_conf_score,
-        '_' + args.loss if args.loss != 'mpjpe' else ''
+        '_' + args.loss if args.loss != 'mpjpe' else '',
+        '_smthconf' if args.smooth_conf_score else ''
         ))
 print("Saving checkpoint to ", args.checkpoint, "\n")
 try:
@@ -157,10 +158,10 @@ if not args.evaluate:
     # Fetch train data
     cameras_train, poses_train, poses_train_2d = dtf.fetch_train()
     # Apply distortion on input training data 
-    poses_train_2d = [inp_distr.get_train_inputs(i) for i in poses_train_2d]
     # from matplotlib import pyplot as plt
     # plt.plot(poses_train_2d[0][:,11,0])
-    # plt.plot(poses_train_2d[0][:,11,1])
+    poses_train_2d = [inp_distr.get_train_inputs(i) for i in poses_train_2d]
+    # plt.plot(poses_train_2d[0][:,11,0])
     # plt.savefig("abc.png", bbox_inches="tight")
     # import ipdb; ipdb.set_trace()
     # Prepare optimizers
@@ -214,6 +215,7 @@ if not args.evaluate:
             inputs_3d[:, :, 0] = 0
 
             optimizer.zero_grad()
+            inputs_2d = inp_distr.smooth_conf_scr(inputs_2d)
             # Predict 3D poses
             predicted_3d_pos = model_pos_train(inputs_2d)
             # Select joints for computing losses
@@ -246,11 +248,17 @@ if not args.evaluate:
                 for cam, batch, batch_2d in test_generator.next_epoch():
                     inputs_3d = torch.from_numpy(batch.astype('float32'))
                     inputs_2d = torch.from_numpy(batch_2d.astype('float32'))
+                    if args.smooth_conf_score == True:
+                        inputs_2d, inputs_3d = eval_data_prepare(inputs_2d, inputs_3d)
+                    
                     if torch.cuda.is_available():
                         inputs_3d = inputs_3d.cuda()
                         inputs_2d = inputs_2d.cuda()
                     inputs_traj = inputs_3d[:, :, :1].clone()
                     inputs_3d[:, :, 0] = 0
+                   
+                    # Smooth conf. score (if enabled)
+                    inputs_2d = inp_distr.smooth_conf_scr(inputs_2d)
                     # Predict 3D poses
                     predicted_3d_pos = model_pos(inputs_2d)
                     # Select joints for evaluation
@@ -279,7 +287,8 @@ if not args.evaluate:
                         inputs_2d = inputs_2d.cuda()
                     inputs_traj = inputs_3d[:, :, :1].clone()
                     inputs_3d[:, :, 0] = 0
-
+                    # Smooth conf. score (if enabled)
+                    inputs_2d = inp_distr.smooth_conf_scr(inputs_2d)
                     # Compute 3D poses
                     predicted_3d_pos = model_pos(inputs_2d)
                     # Select joints for computing losses
@@ -355,7 +364,7 @@ if not args.evaluate:
             plt.plot(epoch_x, losses_3d_train_eval[3:], color='C0')
             plt.plot(epoch_x, losses_3d_valid[3:], color='C1')
             plt.legend(['3d train', '3d train (eval)', '3d valid (eval)'])
-            plt.ylabel('MPJPE (m)')
+            plt.ylabel('MPJPE (mm)')
             plt.xlabel('Epoch')
             plt.xlim((3, epoch))
             plt.savefig(os.path.join(args.checkpoint, 'loss_3d.png'))
@@ -377,9 +386,20 @@ def evaluate(test_generator, action=None, return_predictions=False, use_trajecto
     
         for _, batch, batch_2d in test_generator.next_epoch():
             inputs_2d = torch.from_numpy(batch_2d.astype('float32'))
+            inputs_3d = torch.from_numpy(batch.astype('float32'))
+            
+            if args.smooth_conf_score == True:
+                inputs_2d, inputs_3d = eval_data_prepare(inputs_2d, inputs_3d)
+                # inputs_2d, inputs_3d = eval_data_prepare(inputs_2d[0, None])
+                # import ipdb; ipdb.set_trace()
+                
             if torch.cuda.is_available():
                 inputs_2d = inputs_2d.cuda()
+                inputs_3d = inputs_3d.cuda()
             
+            # Smooth conf. score (if enabled)
+            inputs_2d = inp_distr.smooth_conf_scr(inputs_2d)
+
             # Positional model
             if not use_trajectory_model:
                 predicted_3d_pos = model_pos(inputs_2d)
@@ -397,14 +417,11 @@ def evaluate(test_generator, action=None, return_predictions=False, use_trajecto
             if return_predictions:
                 return predicted_3d_pos.squeeze(0).cpu().numpy()
                 
-            inputs_3d = torch.from_numpy(batch.astype('float32'))
-            if torch.cuda.is_available():
-                inputs_3d = inputs_3d.cuda()
             inputs_3d[:, :, 0] = 0    
             if test_generator.augment_enabled():
                 inputs_3d = inputs_3d[:1]
             
-            # mask 3d outputs for computing losses
+            # masking 3d outputs for computing losses
             if inputs_3d.shape[-1] == 4:
                 eval_msk  = inputs_3d[...,3].type(torch.bool)
                 inputs_3d = inputs_3d[...,:3]

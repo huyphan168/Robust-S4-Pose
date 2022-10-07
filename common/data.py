@@ -235,3 +235,12 @@ class DataFetcher:
                     out_poses_3d[i] = out_poses_3d[i][::stride]
         
         return out_poses_3d, out_poses_2d
+
+def eval_data_prepare(inputs_2d, inputs_3d, receptive_field=27):
+    inputs_2d_p = torch.squeeze(inputs_2d)
+    inputs_3d_p = inputs_3d.permute(1,0,2,3)
+    out_num = inputs_2d_p.shape[0] - receptive_field + 1
+    eval_input_2d = torch.empty(out_num, receptive_field, inputs_2d_p.shape[1], inputs_2d_p.shape[2])
+    for i in range(out_num):
+        eval_input_2d[i,:,:,:] = inputs_2d_p[i:i+receptive_field, :, :]
+    return eval_input_2d, inputs_3d_p

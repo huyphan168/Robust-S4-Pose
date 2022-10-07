@@ -18,15 +18,17 @@ def parse_args():
     return args
     
 
-def plot_exp(ax, eval_folder, to_run, shift=0.0, name = None, hatch=None, mode='line', metrics='all'):
+def plot_exp(ax, eval_folder, to_run, shift=0.0, name = None, hatch=None, mode='line', metrics='all', color = 'b'):
     
     distr_names= []
-    colors     = []
+    colors = []
+    metrics_styles     = ['-', '--', '.']
     if type(metrics) == str:
         metrics = [metrics]
-    for m in metrics:
+    
+    for mi, m in enumerate(metrics):
         mpjpe_vals = []
-        for file, n, c in to_run:
+        for si, (file, n, c) in enumerate(to_run):
             file_path = osp.join(eval_folder, "%s%s.csv" % (file,
                 "_file_%s" % m if m != 'all' else ''
             ))
@@ -40,14 +42,17 @@ def plot_exp(ax, eval_folder, to_run, shift=0.0, name = None, hatch=None, mode='
             else:
                 print("File not found %s" % file_path)
         if mode == 'line':
-            ax.plot(mpjpe_vals,marker='o', label=name if m=='all' else "[$MPJPE_{\leq%s}$] %s" % (m, name))
+            ax.plot(mpjpe_vals,marker='o', label=name if m=='all' else "[$MPJPE_{\leq%s}$] %s" % (m, name),
+                linestyle = metrics_styles[mi], color=color
+            )
         elif mode == 'bar':
             for i in range(len(distr_names)):
                 ax.bar(i + shift, mpjpe_vals[i], width = 0.2, color = colors[i], hatch=hatch)
 
-def plot_exp_series(args, exp_series, x_ticks, xlabel="Distortion Type", ylabel="MPJPE", 
+def plot_exp_series(args, exp_series, x_ticks, xlabel="Distortion Type", ylabel="MPJPE (mm)", 
         out_file="mpjpe_plot.png", title="Plot", mode = 'line', metrics = 'all'):
-    patterns= ['//','+', 'o', '-', '\\', '.']
+    patterns= ['//','+', 'o', '-', '\\', '.', '*', "\\"]
+    colors     = plt.rcParams['axes.prop_cycle'].by_key()['color']
     plt.figure(figsize=(14,8))
     for i, exp_id in enumerate(exp_series):
         plot_exp(plt.gca(), 
@@ -57,7 +62,8 @@ def plot_exp_series(args, exp_series, x_ticks, xlabel="Distortion Type", ylabel=
             shift= (i - len(exp_series)//2)*0.4 + 0.2,
             hatch= patterns[i],
             mode = mode,
-            metrics = metrics
+            metrics = metrics,
+            color=colors[i]
         )
     plt.xticks(np.arange(len(x_ticks)), x_ticks)
     plt.xlabel(xlabel)
@@ -98,7 +104,7 @@ def plot_exp_gauss(args, exps_list, out_file="mpjpe_plot.png",
             )
         exp_series[exp] = {'label': label, 'exps': list_plot}
     x_ticks= [i[0] for i in distortion_types]
-    title  = "[%s] Performance on distored input (%s)" % (model_name, distortion_parts)
+    title  = "[%s] Performance on distored %s keypoints" % (model_name, distortion_parts)
     plot_exp_series(args,
         exp_series,
         x_ticks,
@@ -139,7 +145,7 @@ def plot_time_distortion(args, exps_list, out_file="mpjpe_plot.png",
             )
         exp_series[exp] = {'label': label, 'exps': list_plot}
     x_ticks= [i[0] for i in distortion_ratio]
-    title  = "[%s] Performance on distored input (%s)" % (model_name, distortion_parts)
+    title  = "[%s] Performance on distored %s keypoints" % (model_name, distortion_parts)
     plot_exp_series(args,
         exp_series,
         x_ticks,
@@ -187,11 +193,9 @@ def plot_img_distortion(args, exps_list, out_file="mpjpe_img_distortion.png",
         # mode='bar'
         )
 
-def plot_mpjpe_rel_mpjpe(args, exps_list, out_file="rel-mpjpe-compare.png", 
-                dist_thr = None):
+def plot_mpjpe_rel_mpjpe(args, exps_list, out_file="rel-mpjpe-compare.png", metrics =['0.1']):
     exp_series = {}
     color = 'bisque'
-     
     distortion_types  = [
         ('clean', 'gray'),
         # ('brightness',color),
@@ -222,64 +226,35 @@ def plot_mpjpe_rel_mpjpe(args, exps_list, out_file="rel-mpjpe-compare.png",
         x_ticks,
         title=title,
         out_file=out_file,
-        metrics =['0.1']
-        # metrics =['all',  '0.1' ,'0.05', '0.03', '0.01', '0.005']
+        metrics = metrics
         )
 
 def plot_dist_kpts(args):
     exps_list = [
+        # Original VP3D
         ("VideoPose3D-cpn_ft_h36m_dbb-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
         "epoch_80",
-        "VP3D (27f) on H36M"),
-
-        # ("VideoPose3D-cpn_ft_h36m_dbb-a3,3,3-b1024-dj_gauss_0.05-dp_randfix_0.2-df0.2-lss_exc_None-conf_None",
-        # "epoch_80",
-        # "VP3D (27f) on dist-H36M (Gauss $\sigma=0.05$ - 20% joints (fixed) - 20% frames - gauss conf scr)"),
-
-        #  ("VideoPose3D-cpn_ft_h36m_dbb-a3,3,3-b1024-dj_gauss_0.05-dp_rand_0.2-df0.2-lss_exc_None-conf_None",
-        # "epoch_80",
-        # "VP3D (27f) on dist-H36M (Gauss $\sigma=0.05$ - 20% joints - 20% frames - gauss conf scr)"),
-
-        ("VideoPose3D-cpn_ft_h36m_dbb-a3,3,3-b1024-dj_gauss_0.1-dp_randfix_0.3-df0.3-lss_exc_None-conf_None",
+        "VP3D on CLEAN cpn keypoints"),
+        
+        ("VideoPose3D-cpn_ft_h36m_dbb-a3,3,3-b1024-dj_gauss_0.05-dp_rand_0.2-df0.2-lss_exc_None-conf_None",
         "epoch_80",
-        "VP3D (27f) on dist-H36M (Gauss $\sigma=0.1$ - 30% joints (FIXED) - 30% frames - gauss conf scr)"),
-
-        ("VideoPose3D-cpn_ft_h36m_dbb-a3,3,3-b1024-dj_gauss_0.1-dp_randfix_0.3-df0.3-lss_exc_None-conf_gauss",
-        "epoch_80",
-        "VP3D (27f) with CONF SCR on dist-H36M (Gauss $\sigma=0.1$ - 30% joints (FIXED) - 30% frames - gauss conf scr)"),
+        "VP3D on dist-H36M-kpts (Gauss $\sigma=0.05$ - 20% joints - 20% frames)"),
         
         ("VideoPose3D-cpn_ft_h36m_dbb-a3,3,3-b1024-dj_gauss_0.1-dp_rand_0.3-df0.3-lss_exc_None-conf_None",
         "epoch_80",
-        "VP3D (27f) on dist-H36M (Gauss $\sigma=0.1$ - 30% joints - 30% frames - gauss conf scr)"),
-
-        ("VideoPose3D-cpn_ft_h36m_dbb-a3,3,3-b1024-dj_gauss_0.1-dp_rand_0.3-df0.3-lss_exc_None-conf_gauss",
-        "epoch_80",
-        "VP3D (27f) with CONF SCR on dist-H36M (Gauss $\sigma=0.1$ - 30% joints - 30% frames - gauss conf scr))"),
-
-        
-
-        # ("VideoPose3D-cpn_ft_h36m_dbb-a3,3,3-b1024-dj_gauss_0.3-dp_randfix_0.5-df0.5-lss_exc_None-conf_None",
-        # "epoch_80",
-        # "VP3D (27f) on dist-MPJPE (Gauss $\sigma=0.3$ - 50% joints (fixed)- 50% frames - gauss conf scr) on dist-H36M"),
-        # ("VideoPose3D-cpn_ft_h36m_dbb-a3,3,3-b1024-dj_gauss_0.5-dp_randfix_0.5-df1.0-lss_exc_None-conf_None",
-        # "epoch_80",
-        # "VP3D (27f) on dist-MPJPE (Gauss $\sigma=0.5$ - 50% joints (fix) - 100% frames - gauss conf scr) on dist-H36M"),
+        "VP3D on dist-H36M-kpts (Gauss $\sigma=0.1$ - 30% joints - 30% frames)"),
 
         # ("VideoPose3D-cpn_ft_h36m_dbb-a3,3,3-b1024-dj_gauss_0.5-dp_rand_0.5-df1.0-lss_exc_None-conf_None",
         # "epoch_80",
-        # "VP3D (27f) on dist-MPJPE (Gauss $\sigma=0.5$ - 50% joints - 100% frames - gauss conf scr) on dist-H36M"),
-
-        # ("VideoPose3D-cpn_ft_h36m_dbb-a3,3,3-b1024-dj_gauss_0.5-dp_rand_0.5-df1.0-lss_exc_None-conf_gauss",
-        # "epoch_80",
-        # "VP3D (27f) with gauss conf score on dist-MPJPE (Gauss $\sigma=0.5$ - 50% joints - 100% frames - gauss conf scr) on dist-H36M"),        
+        # "VP3D on dist-H36M-kpts (Gauss $\sigma=0.3$ - 50% joints- 50% frames)"),       
         ]
 
     # 
     plot_exp_gauss(args, exps_list,
-        out_file = "mpjpe_plot.png"
+        out_file = "mpjpe_dist_kpts_noise_level.png"
     )
     plot_time_distortion(args, exps_list,
-        out_file = "mpjpe_temporal_distortion.png",
+        out_file = "mpjpe_dist_kpts_temp_distortion.png",
     )
 
 def plot_dist_imgs(args):
@@ -308,7 +283,6 @@ def plot_dist_imgs(args):
         "epoch_80",
         "VP3D on CLEAN + noise $\sigma=0.3$ hrnet det."),
 
-
         ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_0.5-df0.5-lss_exc_None-conf_None",
         "epoch_80",
         "VP3D on CLEAN + noise $\sigma=0.3$ hrnet det."),
@@ -320,11 +294,26 @@ def plot_dist_imgs(args):
     ]
     plot_img_distortion(args, exps_list)
 
-def plot_reliable_mpjpe_img_distortion(args):
+def plot_mpjpe_at_t_img_distortion(args):
     exps_list = [
         ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
         "epoch_80",
         "VP3D on CLEAN hrnet det"),
+        
+        ("VideoPose3D-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
+        "epoch_80",
+        "VP3D on MIX-AUG hrnet det"),
+    ]
+    plot_mpjpe_rel_mpjpe(args, exps_list, out_file="mpjpe_dist_img.png", metrics=[0.1, 0.01])
+
+    exps_list = [
+        ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
+        "epoch_80",
+        "VP3D on CLEAN hrnet det"),
+        
+        ("VideoPose3D-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
+        "epoch_80",
+        "VP3D on MIX-AUG hrnet det"),
         
         ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.05-dp_rand_0.2-df0.2-lss_exc_None-conf_None",
         "epoch_80",
@@ -337,29 +326,76 @@ def plot_reliable_mpjpe_img_distortion(args):
         ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_0.5-df0.5-lss_exc_None-conf_None",
         "epoch_80",
         "P3D on CLEAN + GAUSS noise $\sigma=0.3$ hrnet det"),
-
-        # ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.8-dp_rand_0.5-df0.6-lss_exc_None-conf_None",
+        # VideoPose3D-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_det
+        # ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_impulse_0.2-dp_rand_0.3-df0.2-lss_exc_None-conf_None",
         # "epoch_80",
-        # "P3D on CLEAN + GAUSS noise $\sigma=0.8$ hrnet det"),
+        # "P3D on CLEAN + IMPULSE noise $p=0.2$ hrnet det"),
+
+        # ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_impulse_0.4-dp_rand_0.3-df0.3-lss_exc_None-conf_None",
+        # "epoch_80",
+        # "P3D on CLEAN + IMPULSE noise $p=0.4$ hrnet det"),
+
+        # ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_impulse_0.6-dp_rand_0.5-df0.5-lss_exc_None-conf_None",
+        # "epoch_80",
+        # "P3D on CLEAN + IMPULSE noise $p=0.6$ hrnet det"),
+    ]
+    plot_mpjpe_rel_mpjpe(args, exps_list, out_file="mpjpe_dist_img_gauss.png", metrics=[0.1])
+    # plot_mpjpe_rel_mpjpe(args, exps_list, out_file="reliable-mpjpe.png", dist_thr=0.05)
+
+def plot_conf_scr_learning(args):
+    exps_list = [
+        ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
+        "epoch_80",
+        "VP3D on CLEAN hrnet det"),
+
+        ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_det",
+        "epoch_80",
+        "VP3D on CLEAN + CONF SCORE hrnet det"),
+        
+        ("VideoPose3D-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_det_smthconf",
+        "epoch_80",
+        "VP3D on CLEAN + CONF SCORE NORMALIZED hrnet det"),
 
         ("VideoPose3D-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
         "epoch_80",
-        "VP3D on MIX-AUG-train hrnet det"),
-        
-        # ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_impulse_0.4-dp_rand_0.3-df0.3-lss_exc_None-conf_impulse",
-        # "epoch_80",
-        # "VP3D on CLEAN + IMPULSE noise hrnet"),
-        # ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_laplace_0.02-dp_rand_0.3-df0.3-lss_exc_None-conf_None",
-        # "epoch_80",
-        # "VP3D on CLEAN + LAPLACE noise hrnet det."),
-    ]
-    plot_mpjpe_rel_mpjpe(args, exps_list, out_file="reliable-mpjpe.png", dist_thr=0.05)
+        "VP3D on MIX-AUG hrnet det"),
 
-    
+        ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_det_smthconf",
+        "epoch_80",
+        "VP3D on MIX-AUG + CONF SCORE NORMALIZED hrnet det"),
+
+        # ("VideoPose3D-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_det",
+        # "epoch_80",
+        # "VP3D on MIX-AUG + CONF SCORE hrnet det"),
+    ]
+    plot_mpjpe_rel_mpjpe(args, exps_list, out_file="mpjpe_dist_img_conf_scr.png", metrics=[0.1])
+
+    # exps_list = [
+    #     # Original VP3D
+    #     ("VideoPose3D-cpn_ft_h36m_dbb-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
+    #     "epoch_80",
+    #     "VP3D on CLEAN cpn keypoints"),
+    #     ("VideoPose3D-cpn_ft_h36m_dbb-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
+    #     "epoch_80",
+    #     "VP3D on CLEAN cpn keypoints"),
+        
+    #     ("VideoPose3D-cpn_ft_h36m_dbb-a3,3,3-b1024-dj_gauss_0.05-dp_rand_0.2-df0.2-lss_exc_None-conf_None",
+    #     "epoch_80",
+    #     "VP3D on dist-H36M-kpts (Gauss $\sigma=0.05$ - 20% joints - 20% frames)"),
+        
+    #     ("VideoPose3D-cpn_ft_h36m_dbb-a3,3,3-b1024-dj_gauss_0.1-dp_rand_0.3-df0.3-lss_exc_None-conf_None",
+    #     "epoch_80",
+    #     "VP3D on dist-H36M-kpts (Gauss $\sigma=0.1$ - 30% joints - 30% frames)"),
+    # ]
+
+    # plot_exp_gauss(args, exps_list,
+    #     out_file = "mpjpe_dist_kpts_noise_level.png")
+
 def main(args):
     # plot_dist_kpts(args)    
     # plot_dist_imgs(args)
-    plot_reliable_mpjpe_img_distortion(args)
+    # plot_mpjpe_at_t_img_distortion(args)
+    plot_conf_scr_learning(args)
 
 if __name__ == "__main__":
     args = parse_args()

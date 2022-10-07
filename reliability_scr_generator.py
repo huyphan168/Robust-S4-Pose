@@ -58,16 +58,20 @@ def process_data(args):
                 diff[subj][act].append(e)
     
     if args.plot_cdf:
+        plt.grid()
         diff_arr = np.vstack(diff_arr).flatten()
         hist, bins = np.histogram(diff_arr, bins = 1000, density = True)
         dx = bins[1] - bins[0]
         cdf= np.cumsum(hist)*dx
-        plt.plot(bins[1:], cdf)
-        for r in [0.8, 0.85, 0.9]:
+        plt.plot(np.log10(bins[1:]), cdf)
+        plt.xlabel("Offset to the clean 2D keypoints in log scale ($log_{10}(\epsilon)$)")
+        plt.ylabel("CDF")
+        for r in [0.4, 0.6, 0.8, 0.85, 0.9]:
             thresh= bins[1:][np.where(cdf>r)[0][0]]
             print("Ratio = %f, thresh = %.3f" % (r,thresh))
-        plt.savefig("dist_cdf.png", bbox_inches='tight')
-    np.savez_compressed("data/eval_dist_h36m_hrnet_%s.npz" % args.set, eval_dist = diff)
+        plt.savefig("plots/cdf_%s.png" % args.set, bbox_inches='tight')
+    else:
+        np.savez_compressed("data/eval_dist_h36m_hrnet_%s.npz" % args.set, eval_dist = diff)
     
     
 def main(args):

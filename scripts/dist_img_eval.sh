@@ -14,5 +14,6 @@ python run_exp.py \
     -arc 3,3,3 \
     --evaluate epoch_80.bin \
     --eval-ignore-parts file_0.1 \
-    --drop-conf-score \
+    --smooth-conf-score -no-tta\
+    # --drop-conf-score \
     

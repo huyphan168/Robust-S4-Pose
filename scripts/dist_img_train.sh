@@ -1,11 +1,15 @@
 #!/bin/bash
-# python run_exp.py \
-#     -k hrnet_$1 \
-#     -arc 3,3,3 \
-#     --drop-conf-score 
+if [ -z "$2" ]
+  then
+    CFG=None
+  else
+    CFG=configs/$2.yaml
+fi
 
 python run_exp.py \
     -k hrnet_$1 \
     -arc 3,3,3 \
-    -cfg configs/$2.yaml \
-    --drop-conf-score
+    -cfg $CFG \
+    --smooth-conf-score  \
+    --no-eval \
+    -ste ''

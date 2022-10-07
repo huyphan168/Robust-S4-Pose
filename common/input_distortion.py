@@ -1,4 +1,4 @@
-import imp
+import torch
 import numpy as np
 class InputDistortion:
     def __init__(self, args, layout="h36m") -> None:
@@ -93,7 +93,7 @@ class InputDistortion:
         # sort noise for each sample
         ids_shuffle = np.argsort(noise)  # ascend: small is keep, large is removed
         ids_restore = np.argsort(ids_shuffle)
-        # generate the binary mask: 0 is keep, 1 is remove
+        # generate the binary mask: 0 is kept, 1 is removed
         mask = np.ones(l)
         mask[:len_keep] = 0
         # unshuffle to get the binary mask
@@ -149,3 +149,9 @@ class InputDistortion:
 
     def get_eval_joints(self, inputs):
         return inputs[...,self.get_mask(self.eval_ignore_parts).astype(bool), :]
+
+    def smooth_conf_scr(self, inputs):
+        if self.args.smooth_conf_score == True:
+            assert inputs.shape[-1] == 3
+            inputs[...,-1] = torch.softmax(inputs[...,-1], dim=1)
+        return inputs
