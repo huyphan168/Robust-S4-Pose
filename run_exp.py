@@ -24,6 +24,7 @@ from common.loss   import *
 from common.data   import *
 from common.render import *
 from common.model  import *
+from common.model_factory import get_model
 from common.generators import ChunkedGenerator, UnchunkedGenerator
 from time import time
 from common.utils import deterministic_random, load_cfg_from_file
@@ -74,28 +75,11 @@ cameras_valid, poses_valid, poses_valid_2d = dtf.fetch_test()
 # Apply distortion on validation data input
 poses_valid_2d = [inp_distr.get_test_inputs(i) for i in poses_valid_2d]
 
-# Prepare model
-filter_widths = [int(x) for x in args.architecture.split(',')]
-
-if args.model == "VideoPose3D":
-    num_joints_in = poses_valid_2d[0].shape[-2] if len(poses_valid_2d) > 0 else 17
-    in_features   = poses_valid_2d[0].shape[-1] if len(poses_valid_2d) > 0 else 3 if args.drop_conf_score == False else 2
-    if not args.disable_optimizations and not args.dense and args.stride == 1:
-        # Use optimized model for single-frame predictions
-        model_pos_train = TemporalModelOptimized1f(num_joints_in, in_features, dtf.dataset.skeleton().num_joints(),
-                                    filter_widths=filter_widths, causal=args.causal, dropout=args.dropout, channels=args.channels)
-    else:
-        # When incompatible settings are detected (stride > 1, dense filters, or disabled optimization) fall back to normal model
-        model_pos_train = TemporalModel(num_joints_in, in_features, dtf.dataset.skeleton().num_joints(),
-                                    filter_widths=filter_widths, causal=args.causal, dropout=args.dropout, channels=args.channels,
-                                    dense=args.dense)
-        
-    model_pos = TemporalModel(num_joints_in, in_features, dtf.dataset.skeleton().num_joints(),
-                                filter_widths=filter_widths, causal=args.causal, dropout=args.dropout, channels=args.channels,
-                                dense=args.dense)
-else:
-    raise NotImplementedError
-
+# Initialize train/test models
+model_pos_train, model_pos = get_model(args, 
+    num_joints_in = poses_valid_2d[0].shape[-2] if len(poses_valid_2d) > 0 else 17, 
+    num_joints_out= dtf.dataset.skeleton().num_joints(),
+    in_features   = poses_valid_2d[0].shape[-1] if len(poses_valid_2d) > 0 else 3 if args.drop_conf_score == False else 2)
 receptive_field = model_pos.receptive_field()
 print('INFO: Receptive field: {} frames'.format(receptive_field))
 pad = (receptive_field - 1) // 2 # Padding on each side
@@ -123,18 +107,7 @@ if args.resume or args.evaluate:
     print('This model was trained for {} epochs'.format(checkpoint['epoch']))
     model_pos_train.load_state_dict(checkpoint['model_pos'])
     model_pos.load_state_dict(checkpoint['model_pos'])
-    
     model_traj = None
-    if args.evaluate and 'model_traj' in checkpoint:
-        if checkpoint['model_traj'] is not None:
-            # Load trajectory model if it contained in the checkpoint (e.g. for inference in the wild)
-            model_traj = TemporalModel(poses_valid_2d[0].shape[-2], poses_valid_2d[0].shape[-1], 1,
-                                filter_widths=filter_widths, causal=args.causal, dropout=args.dropout, channels=args.channels,
-                                dense=args.dense)
-            if torch.cuda.is_available():
-                model_traj = model_traj.cuda()
-            model_traj.load_state_dict(checkpoint['model_traj'])
-        
 
 # Generate test data  
 test_generator = UnchunkedGenerator(cameras_valid, poses_valid, poses_valid_2d,
@@ -215,7 +188,7 @@ if not args.evaluate:
             inputs_3d[:, :, 0] = 0
 
             optimizer.zero_grad()
-            inputs_2d = inp_distr.smooth_conf_scr(inputs_2d)
+            # inputs_2d = inp_distr.smooth_conf_scr(inputs_2d)
             # Predict 3D poses
             predicted_3d_pos = model_pos_train(inputs_2d)
             # Select joints for computing losses
@@ -258,7 +231,7 @@ if not args.evaluate:
                     inputs_3d[:, :, 0] = 0
                    
                     # Smooth conf. score (if enabled)
-                    inputs_2d = inp_distr.smooth_conf_scr(inputs_2d)
+                    # inputs_2d = inp_distr.smooth_conf_scr(inputs_2d)
                     # Predict 3D poses
                     predicted_3d_pos = model_pos(inputs_2d)
                     # Select joints for evaluation
@@ -288,7 +261,7 @@ if not args.evaluate:
                     inputs_traj = inputs_3d[:, :, :1].clone()
                     inputs_3d[:, :, 0] = 0
                     # Smooth conf. score (if enabled)
-                    inputs_2d = inp_distr.smooth_conf_scr(inputs_2d)
+                    # inputs_2d = inp_distr.smooth_conf_scr(inputs_2d)
                     # Compute 3D poses
                     predicted_3d_pos = model_pos(inputs_2d)
                     # Select joints for computing losses
@@ -398,7 +371,7 @@ def evaluate(test_generator, action=None, return_predictions=False, use_trajecto
                 inputs_3d = inputs_3d.cuda()
             
             # Smooth conf. score (if enabled)
-            inputs_2d = inp_distr.smooth_conf_scr(inputs_2d)
+            # inputs_2d = inp_distr.smooth_conf_scr(inputs_2d)
 
             # Positional model
             if not use_trajectory_model:

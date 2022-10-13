@@ -12,5 +12,6 @@ python run_exp.py \
     -cfg $CFG \
     --no-eval \
     -ste '' \
-    -m ConfVideoPose3DV33 \
+    -c checkpoint/draft \
+    -m ConfVideoPose3DV34 \
     # --smooth-conf-score  \

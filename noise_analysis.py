@@ -59,6 +59,32 @@ def compute_distance(seq1, seq2):
 COCO_JOINTS = ["nose","left_eye","right_eye","left_ear","right_ear","left_shoulder",
                 "right_shoulder","left_elbow","right_elbow","left_wrist","right_wrist",
                 "left_hip","right_hip","left_knee","right_knee","left_ankle","right_ankle"]
+
+def plot_conf_scr_heatmap(args):
+    dist_kpts   = load_kpt(args.set)
+    subjects    = list(dist_kpts.keys())
+    actions     = list(dist_kpts[subjects[0]].keys()) 
+    cameras     = [i for i in range(4)]
+    # cameras     = list(dist_kpts[subjects[0]][actions[0]].keys()) 
+    clean_seq = []
+    dist_seq  = []
+    # axs = plt.subplots(len(viz_joints),2,figsize=(16,8))
+    plt.figure(figsize=(10,6))
+
+    for subj in ['S9']:
+        for act in['Walking']:
+            for cam in cameras:
+                conf  = dist_kpts[subj][act][cam][250:300,:,-1]
+                # import ipdb; ipdb.set_trace()
+                plt.imshow(conf.T, cmap='hot', interpolation='nearest')
+                plt.yticks([])
+                # sns.heatmap(conf.T, linewidth=0.2)
+                break
+    plt.xlabel("Time")
+    plt.ylabel("Joint index")
+    plt.savefig("plots/conf_scr_heatmap.png", bbox_inches='tight')
+    # clean_seq = np.vstack(clean_seq)
+    # dist_seq  = np.vstack(dist_seq)
 def plot_err_distribution(args):
     inp_distr = InputDistortion(args)
     clean_kpts  = load_kpt('clean')
@@ -171,7 +197,8 @@ def plot_err_distribution(args):
     # plt.plot(x, y_fit,color='red')
     
 def main(args):
-    plot_err_distribution(args)
+    # plot_err_distribution(args)
+    plot_conf_scr_heatmap(args)
     
     
 if __name__ == '__main__':

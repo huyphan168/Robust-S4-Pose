@@ -150,8 +150,8 @@ class InputDistortion:
     def get_eval_joints(self, inputs):
         return inputs[...,self.get_mask(self.eval_ignore_parts).astype(bool), :]
 
-    def smooth_conf_scr(self, inputs):
-        if self.args.smooth_conf_score == True:
-            assert inputs.shape[-1] == 3
-            inputs[...,-1] = torch.softmax(inputs[...,-1], dim=1)
-        return inputs
+    # def smooth_conf_scr(self, inputs):
+    #     if self.args.smooth_conf_score == True:
+    #         assert inputs.shape[-1] == 3
+    #         inputs[...,-1] = torch.softmax(inputs[...,-1], dim=1)
+    #     return inputs
