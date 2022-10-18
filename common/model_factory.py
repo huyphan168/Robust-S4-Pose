@@ -34,16 +34,24 @@ def get_model(args, num_joints_in, num_joints_out, in_features):
         ModelClass  = ConfTemporalModelV33
     elif args.model == "ConfVideoPose3DV34":
         ModelClass  = ConfTemporalModelV34
-    elif args.model == "ConfVideoPose3DV34sigmoid":
-        ModelClass  = ConfTemporalModelV34sigmoid
+    elif args.model == "ConfVideoPose3DV34gamma0":
+        ModelClass  = ConfTemporalModelV34gamma0
+    elif args.model == "ConfVideoPose3DV34gamma3":
+        ModelClass  = ConfTemporalModelV34gamma3
+    elif args.model == "ConfVideoPose3DV34gamma5":
+        ModelClass  = ConfTemporalModelV34gamma5
     elif args.model == "ConfVideoPose3DV34tanh":
         ModelClass  = ConfTemporalModelV34tanh
+    
     elif args.model == "ConfVideoPose3DV35":
         ModelClass  = ConfTemporalModelV35
     elif args.model == "ConfVideoPose3DV36":
         ModelClass  = ConfTemporalModelV36
+    elif args.model == "ConfVideoPose3DV37":
+        ModelClass  = ConfTemporalModelV37
     elif args.model == "ConfVideoPose3DV4":
         ModelClass  = ConfTemporalModelV4 
+        
     else:
         raise NotImplementedError
 

@@ -5,13 +5,24 @@ from torch.nn import functional as F
 import torch
 from einops import rearrange
 
+def get_activation_layer(activation):
+    if activation == 'relu':
+        ActLayer = nn.ReLU
+    elif activation == 'sigmoid':
+        ActLayer = nn.Sigmoid
+    elif activation == 'tanh':
+        ActLayer = nn.Tanh
+    return ActLayer
+
 class ConfTemporalModelV3Base(TemporalModelBase):
-    def __init__(self, num_joints_in, in_features, num_joints_out, filter_widths, causal, dropout, channels,  dense=False):
+    def __init__(self, num_joints_in, in_features, num_joints_out, filter_widths, causal, dropout, channels,  dense=False, conf_activation='sigmoid'):
         super().__init__(num_joints_in, in_features, num_joints_out, filter_widths, causal, dropout, channels)
         self.expand_conv     = nn.Conv1d(num_joints_in*2, channels, filter_widths[0], bias=False)
+        self.expand_act_conf = get_activation_layer(conf_activation)()
         self.expand_conv_conf= nn.Conv1d(num_joints_in,   channels, filter_widths[0], bias=False)
-        self.expand_bn_conf = nn.BatchNorm1d(channels, momentum=0.1)
-        self.causal_shift = [ (filter_widths[0]) // 2 if causal else 0 ]
+        self.expand_bn_conf  = nn.BatchNorm1d(channels, momentum=0.1)
+        self.causal_shift    = [ (filter_widths[0]) // 2 if causal else 0 ]
+        
         
     def set_bn_momentum(self, momentum):
         for layer in self.modules():
@@ -20,7 +31,7 @@ class ConfTemporalModelV3Base(TemporalModelBase):
 
     def _forward_blocks(self, x, cnf):
         x   = self.drop(self.relu(self.expand_bn(self.expand_conv(x))))
-        cnf = self.drop(self.relu(self.expand_bn_conf(self.expand_conv_conf(cnf))))
+        cnf = self.drop(self.expand_act_conf(self.expand_bn_conf(self.expand_conv_conf(cnf))))
         
         for i in range(len(self.pad) - 1):
             pad     = self.pad[i+1]
@@ -47,14 +58,7 @@ class ConfTemporalModelV3Base(TemporalModelBase):
 class ConfConvBlockBase(nn.Module):
     def __init__(self,  channels, kernel_size, dilation, dropout, activation='relu') -> None:
         super().__init__()
-        if activation == 'relu':
-            ActLayer = nn.ReLU
-        elif activation == 'sigmoid':
-            ActLayer = nn.Sigmoid
-        elif activation == 'tanh':
-            ActLayer = nn.Tanh()
-        else:
-            raise NotImplementedError
+        ActLayer = get_activation_layer(activation)
         self.pos_conv = nn.Sequential(
             nn.Conv1d(channels, channels, kernel_size, dilation=dilation, bias=False),
             nn.BatchNorm1d(channels, momentum=0.1),
@@ -98,6 +102,7 @@ class ConfConvBlockInput(ConfConvBlockBase):
     def __init__(self, channels, kernel_size, dilation, dropout, leak = 0.0, activation='relu') -> None:
         super().__init__(channels, kernel_size, dilation, dropout, activation=activation)
         self.leak = leak 
+    
     def forward(self, x, cnf, pad, shift):
         # Get the residual
         res = x[:, :, pad + shift : x.shape[2] - pad + shift]
@@ -107,27 +112,27 @@ class ConfConvBlockInput(ConfConvBlockBase):
         x = res + self.drop(self.feat_conv(x))
         return x, cnf
 
-class ConfTemporalModelV34(ConfTemporalModelV3Base):
-    def __init__(self, num_joints_in, in_features, num_joints_out, filter_widths, causal, dropout, channels, dense=False):
-        super().__init__(num_joints_in, in_features, num_joints_out, filter_widths, causal, dropout, channels, dense)
-        layers = []
-        next_dilation = filter_widths[0]
-        for i in range(1, len(filter_widths)):
-            self.pad.append((filter_widths[i] - 1)*next_dilation // 2)
-            self.causal_shift.append((filter_widths[i]//2 * next_dilation) if causal else 0)
-            layers.append(ConfConvBlockInput(channels, filter_widths[i], dilation=next_dilation, dropout=dropout))
-            next_dilation *= filter_widths[i]
-        self.layers = nn.ModuleList(layers)
+# class ConfTemporalModelV34(ConfTemporalModelV3Base):
+#     def __init__(self, num_joints_in, in_features, num_joints_out, filter_widths, causal, dropout, channels, dense=False):
+#         super().__init__(num_joints_in, in_features, num_joints_out, filter_widths, causal, dropout, channels, dense)
+#         layers = []
+#         next_dilation = filter_widths[0]
+#         for i in range(1, len(filter_widths)):
+#             self.pad.append((filter_widths[i] - 1)*next_dilation // 2)
+#             self.causal_shift.append((filter_widths[i]//2 * next_dilation) if causal else 0)
+#             layers.append(ConfConvBlockInput(channels, filter_widths[i], dilation=next_dilation, dropout=dropout))
+#             next_dilation *= filter_widths[i]
+#         self.layers = nn.ModuleList(layers)
 
-class ConfTemporalModelV34sigmoid(ConfTemporalModelV3Base):
-    def __init__(self, num_joints_in, in_features, num_joints_out, filter_widths, causal, dropout, channels, dense=False):
-        super().__init__(num_joints_in, in_features, num_joints_out, filter_widths, causal, dropout, channels, dense)
+class ConfTemporalModelV34(ConfTemporalModelV3Base):
+    def __init__(self, num_joints_in, in_features, num_joints_out, filter_widths, causal, dropout, channels, dense=False, gamma=1.0):
+        super().__init__(num_joints_in, in_features, num_joints_out, filter_widths, causal, dropout, channels, dense, conf_activation='sigmoid')
         layers = []
         next_dilation = filter_widths[0]
         for i in range(1, len(filter_widths)):
             self.pad.append((filter_widths[i] - 1)*next_dilation // 2)
             self.causal_shift.append((filter_widths[i]//2 * next_dilation) if causal else 0)
-            layers.append(ConfConvBlockInput(channels, filter_widths[i], dilation=next_dilation, dropout=dropout,activation='sigmoid',leak=0.5))
+            layers.append(ConfConvBlockInput(channels, filter_widths[i], dilation=next_dilation, dropout=dropout, activation='sigmoid',leak=gamma))
             next_dilation *= filter_widths[i]
         self.layers = nn.ModuleList(layers)
 
@@ -143,15 +148,27 @@ class ConfTemporalModelV34tanh(ConfTemporalModelV3Base):
             next_dilation *= filter_widths[i]
         self.layers = nn.ModuleList(layers)
 
+class ConfTemporalModelV34gamma0(ConfTemporalModelV34):
+    def __init__(self, num_joints_in, in_features, num_joints_out, filter_widths, causal, dropout, channels, dense=False, gamma=0.0):
+        super().__init__(num_joints_in, in_features, num_joints_out, filter_widths, causal, dropout, channels, dense, gamma)
+
+class ConfTemporalModelV34gamma3(ConfTemporalModelV34):
+    def __init__(self, num_joints_in, in_features, num_joints_out, filter_widths, causal, dropout, channels, dense=False, gamma=3.0):
+        super().__init__(num_joints_in, in_features, num_joints_out, filter_widths, causal, dropout, channels, dense, gamma)
+
+class ConfTemporalModelV34gamma5(ConfTemporalModelV34):
+    def __init__(self, num_joints_in, in_features, num_joints_out, filter_widths, causal, dropout, channels, dense=False, gamma=5.0):
+        super().__init__(num_joints_in, in_features, num_joints_out, filter_widths, causal, dropout, channels, dense, gamma)
+
 class FeatFusionConv(nn.Module):
     def __init__(self, channels, kernel_size, dilation) -> None:
         super().__init__()
         self.conv_cnf = nn.Conv1d(channels, channels, kernel_size, dilation=dilation, bias=False)
         self.conv_x   = nn.Conv1d(channels, channels, kernel_size, dilation=dilation, bias=False)
         self.bn       = nn.BatchNorm1d(channels, momentum=0.1)
-        self.relu     = nn.ReLU()
+        self.activation = nn.Sigmoid()
     def forward(self, x, cnf):
-        o  = self.relu(self.bn(self.conv_x(x) + self.conv_cnf(cnf)))
+        o  = self.activation(self.bn(self.conv_x(x) + self.conv_cnf(cnf)))
         return o
 
 class ConfConvBlockInputFusion(ConfConvBlockBase):
@@ -204,5 +221,17 @@ class ConfTemporalModelV36(ConfTemporalModelV3Base):
             self.pad.append((filter_widths[i] - 1)*next_dilation // 2)
             self.causal_shift.append((filter_widths[i]//2 * next_dilation) if causal else 0)
             layers.append(ConfConvBlockInputDualFusion(channels, filter_widths[i], dilation=next_dilation, dropout=dropout))
+            next_dilation *= filter_widths[i]
+        self.layers = nn.ModuleList(layers)
+
+class ConfTemporalModelV37(ConfTemporalModelV3Base):
+    def __init__(self, num_joints_in, in_features, num_joints_out, filter_widths, causal, dropout, channels, dense=False):
+        super().__init__(num_joints_in, in_features, num_joints_out, filter_widths, causal, dropout, channels, dense)
+        layers = []
+        next_dilation = filter_widths[0]
+        for i in range(1, len(filter_widths)):
+            self.pad.append((filter_widths[i] - 1)*next_dilation // 2)
+            self.causal_shift.append((filter_widths[i]//2 * next_dilation) if causal else 0)
+            layers.append(ConfConvBlockInput(channels, filter_widths[i], dilation=next_dilation, dropout=dropout,activation='sigmoid',leak=4.0))
             next_dilation *= filter_widths[i]
         self.layers = nn.ModuleList(layers)

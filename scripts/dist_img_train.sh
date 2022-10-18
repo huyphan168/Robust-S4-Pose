@@ -7,10 +7,9 @@ if [ -z "$2" ]
 fi
 
 python run_exp.py \
-    -k hrnet_$1 \
-    -arc 3,3,3 \
+    -k hrnet_clean \
+    -arc 3,3,3,3 \
     -cfg $CFG \
     --no-eval \
     -ste '' \
-    -m ConfVideoPose3DV33 \
-    # --smooth-conf-score  \
+    -m ConfVideoPose3DV34 \

@@ -323,23 +323,23 @@ def plot_mpjpe_at_t_img_distortion(args):
     exps_list = [
         ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
         "epoch_80",
-        "VP3D on CLEAN hrnet det"),
+        "VP3D on H36M "),
         
         ("VideoPose3D-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
         "epoch_80",
-        "VP3D on MIX-AUG hrnet det"),
+        "VP3D on dist-H36M-imgs"),
         
         ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.05-dp_rand_0.2-df0.2-lss_exc_None-conf_None",
         "epoch_80",
-        "P3D on CLEAN + GAUSS noise $\sigma=0.05$ hrnet det"),
+        "VP3D on H36M, $\sigma=0.05, p=20\%, k=20\%$"),
 
         ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.1-dp_rand_0.3-df0.3-lss_exc_None-conf_None",
         "epoch_80",
-        "P3D on CLEAN + GAUSS noise $\sigma=0.1$ hrnet det"),
+        "VP3D on H36M, $\sigma=0.1, p=30\%, k=30\%$"),
 
         ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_0.5-df0.5-lss_exc_None-conf_None",
         "epoch_80",
-        "P3D on CLEAN + GAUSS noise $\sigma=0.3$ hrnet det"),
+        "VP3D on H36M, $\sigma=0.3, p=50\%, k=50\%$"),
         # VideoPose3D-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_det
         # ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_impulse_0.2-dp_rand_0.3-df0.2-lss_exc_None-conf_None",
         # "epoch_80",
@@ -394,10 +394,9 @@ def plot_conf_scr_learning(args):
         # "epoch_80",
         # "Conf-VP3D-V31 on MIX-AUG hrnet det"),
 
-        ("ConfVideoPose3DV32-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_det",
+        ("ConfVideoPose3DV34-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_det",
         "epoch_80",
-        "Conf-VP3D-V32 on MIX-AUG hrnet det"),
-
+        "Conf-VP3D-V34 on MIX-AUG hrnet det"),
         # ("ConfVideoPose3DV36-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_det",
         # "epoch_80",
         # "Conf-VP3D-V36 on MIX-AUG hrnet det"),
@@ -405,6 +404,22 @@ def plot_conf_scr_learning(args):
         # ("ConfVideoPose3DV33-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_det",
         # "epoch_80",
         # "Conf-VP3D-V33 on MIX-AUG hrnet det"),
+
+        # ("ConfVideoPose3DV37-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_det",
+        # "epoch_80",
+        # "Conf-VP3D-V37 on MIX-AUG hrnet det"),
+        
+        # ("ConfVideoPose3DV34sigmoid-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_det",
+        # "epoch_80",
+        # "Conf-VP3D-V34sigmoid on MIX-AUG hrnet det"),
+
+        # ("ConfVideoPose3DV34sigmoid-hrnet_mix-a3,3,3-b1024-dj_gauss_0.1-dp_rand_0.3-df0.3-lss_exc_None-conf_det",
+        # "epoch_80",
+        # "Conf-VP3D-V34sigmoid + GAUSS noise on MIX-AUG hrnet det"),
+
+        # ("ConfVideoPose3DV34tanh-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_det",
+        # "epoch_80",
+        # "Conf-VP3D-V34tanh on MIX-AUG hrnet det"),
 
         # ("ConfVideoPose3DV34-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_det",
         # "epoch_80",

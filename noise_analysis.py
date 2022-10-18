@@ -85,28 +85,60 @@ def plot_conf_scr_heatmap(args):
     plt.savefig("plots/conf_scr_heatmap.png", bbox_inches='tight')
     # clean_seq = np.vstack(clean_seq)
     # dist_seq  = np.vstack(dist_seq)
-def plot_err_distribution(args):
-    inp_distr = InputDistortion(args)
+
+def load_kpts(args, rsubjects='all', ractions='all', rcameras='all'):
     clean_kpts  = load_kpt('clean')
     dist_kpts   = load_kpt(args.set)
     subjects    = list(dist_kpts.keys())
     actions     = list(dist_kpts[subjects[0]].keys()) 
     cameras     = [i for i in range(4)]
-    # cameras     = list(dist_kpts[subjects[0]][actions[0]].keys()) 
-    # for subject in ['S9']
     clean_seq = []
     dist_seq  = []
-    for subj in subjects:
-        for act in dist_kpts[subj].keys():
-            for cam in cameras:
+    for subj in subjects if rsubjects=='all' else rsubjects:
+        for act in dist_kpts[subj].keys() if ractions == 'all' else ractions:
+            for cam in cameras if rcameras=='all' else rcameras:
                 clean = normalize(clean_kpts[subj][act][cam], cam)
                 dist  = normalize(dist_kpts[subj][act][cam], cam) 
                 length= min(len(clean), len(dist))
                 clean_seq.append(clean[:length])
                 dist_seq.append(dist[:length])
-                # import ipdb; ipdb.set_trace()
     clean_seq = np.vstack(clean_seq)
     dist_seq  = np.vstack(dist_seq)
+    return clean_seq, dist_seq
+
+def plot_err_histogram(args):
+    clean_seq, dist_seq = load_kpts(args)
+    plt.figure(figsize=(9,8))
+   
+    joint_idx = 10
+    err = compute_distance(clean_seq[...,:2], dist_seq[...,:2]).flatten()
+    cnf = dist_seq[...,-1].flatten()
+    # noise_msk = dist_seq[:,joint_idx,2] > 0.1
+    df = pd.DataFrame()
+    df = pd.concat(axis=0, ignore_index=True, objs=[
+        pd.DataFrame.from_dict({'Confidence score': err[cnf<=0.4].tolist(), 'name': r'conf scr $ \leq 0.4$'}),
+        pd.DataFrame.from_dict({'Confidence score': err[cnf<=0.2].tolist(), 'name': r'conf scr $ \leq 0.2$'}),
+        pd.DataFrame.from_dict({'Confidence score': err[cnf<=0.1].tolist(), 'name': r'conf scr $ \leq 0.1$'}),
+    ])
+    # df = pd.DataFrame()
+    # df = pd.concat(axis=0, ignore_index=True, objs=[
+    #     pd.DataFrame.from_dict({'Confidence score': clean_seq[:, joint_idx,2].tolist(), 'name': 'original videos'}),
+    #     pd.DataFrame.from_dict({'Confidence score': dist_seq[:,joint_idx,2].tolist()  , 'name': 'distorted videos'}),
+    # ])
+    sns.histplot(
+        data=df, x='Confidence score', hue='name', element="step", stat='count')
+    # sns.histplot(df, x="clean_conf")
+    # r = sns.histplot(df, x="err_dist", y="conf_scr", binwidth=(.1, .05), cbar=True, stat = 'probability')
+
+    plt.xlabel(r"Error magnitude $\epsilon = ||\tilde{x}-x||$")
+    plt.ylabel(r"Count")
+    plt.grid()
+    plt.savefig("plots/error_cnf_hist.png", bbox_inches='tight')
+
+    
+def plot_err_distribution(args):
+    clean_seq, dist_seq = load_kpts(args)
+    inp_distr = InputDistortion(args)
     augm_seq  = inp_distr.get_train_inputs(clean_seq)
     tar_err = compute_distance(clean_seq[...,:2], dist_seq[...,:2])
     sim_err = compute_distance(augm_seq[...,:2], clean_seq[...,:2])
@@ -115,12 +147,12 @@ def plot_err_distribution(args):
     # diff_t = np.diff(diff[:,8].flatten())
     
     ######### Plot error sequence
-    viz_joints = [7, 9, 10]
-    f, axs = plt.subplots(len(viz_joints),2,figsize=(16,8))
-    for i, j in enumerate(viz_joints):
-        axs[i,0].plot(tar_err[:,j])
-        axs[i,1].plot(sim_err[:,j])
-    plt.savefig("plots/error_seq.png", bbox_inches='tight')
+    # viz_joints = [7, 9, 10]
+    # f, axs = plt.subplots(len(viz_joints),2,figsize=(16,8))
+    # for i, j in enumerate(viz_joints):
+    #     axs[i,0].plot(tar_err[:,j])
+    #     axs[i,1].plot(sim_err[:,j])
+    # plt.savefig("plots/error_seq.png", bbox_inches='tight')
 
     # # ####### Plot histogram ########
     # viz_joints = np.arange(1,17)
@@ -144,24 +176,8 @@ def plot_err_distribution(args):
     
     # plt.savefig("plots/error_histogram.png")
 
-
-    plt.figure(figsize=(9,8))
-    df = pd.DataFrame()
-    joint_idx = 10
-    # noise_msk = dist_seq[:,joint_idx,2] > 0.1
-    df = pd.concat(axis=0, ignore_index=True, objs=[
-        pd.DataFrame.from_dict({'Confidence score': clean_seq[:, joint_idx,2].tolist(), 'name': 'original videos'}),
-        pd.DataFrame.from_dict({'Confidence score': dist_seq[:,joint_idx,2].tolist()  , 'name': 'distorted videos'}),
-    ])
-    sns.histplot(
-        data=df, x='Confidence score', hue='name', element="step", stat='frequency')
-    # sns.histplot(df, x="clean_conf")
-    # r = sns.histplot(df, x="err_dist", y="conf_scr", binwidth=(.1, .05), cbar=True, stat = 'probability')
-    plt.grid()
     # # plt.scatter(tar_err[:, joint_idx], dist_seq[:,joint_idx,2])
     # # plt.scatter(tar_err[:, joint_idx], clean_seq[:,joint_idx,2])
-    # plt.xlabel(r"Error magnitude $\epsilon = ||\tilde{x}-x||$")
-    # plt.ylabel(r"Confidence score of $\tilde{x}$")
     plt.title("Histogram of the detected keypoints confidence score")
     plt.savefig("plots/conf_scr_hist.png", bbox_inches='tight')
 
@@ -198,7 +214,8 @@ def plot_err_distribution(args):
     
 def main(args):
     # plot_err_distribution(args)
-    plot_conf_scr_heatmap(args)
+    # plot_conf_scr_heatmap(args)
+    plot_err_histogram(args)
     
     
 if __name__ == '__main__':
