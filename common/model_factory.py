@@ -42,7 +42,6 @@ def get_model(args, num_joints_in, num_joints_out, in_features):
         ModelClass  = ConfTemporalModelV34gamma5
     elif args.model == "ConfVideoPose3DV34tanh":
         ModelClass  = ConfTemporalModelV34tanh
-    
     elif args.model == "ConfVideoPose3DV35":
         ModelClass  = ConfTemporalModelV35
     elif args.model == "ConfVideoPose3DV36":

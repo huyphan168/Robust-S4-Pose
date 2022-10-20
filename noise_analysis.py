@@ -13,7 +13,7 @@ from common.camera import *
 from common.h36m_dataset import h36m_cameras_intrinsic_params
 from scipy.optimize import curve_fit
 from common.input_distortion import InputDistortion
-
+from matplotlib.ticker import (AutoMinorLocator, MultipleLocator)
 import seaborn as sns
 import pandas as pd
 def parse_args():
@@ -108,34 +108,47 @@ def load_kpts(args, rsubjects='all', ractions='all', rcameras='all'):
 
 def plot_err_histogram(args):
     clean_seq, dist_seq = load_kpts(args)
-    plt.figure(figsize=(9,8))
-   
-    joint_idx = 10
+    joint_idx = 5
     err = compute_distance(clean_seq[...,:2], dist_seq[...,:2]).flatten()
     cnf = dist_seq[...,-1].flatten()
     # noise_msk = dist_seq[:,joint_idx,2] > 0.1
     df = pd.DataFrame()
     df = pd.concat(axis=0, ignore_index=True, objs=[
-        pd.DataFrame.from_dict({'Confidence score': err[cnf<=0.4].tolist(), 'name': r'conf scr $ \leq 0.4$'}),
-        pd.DataFrame.from_dict({'Confidence score': err[cnf<=0.2].tolist(), 'name': r'conf scr $ \leq 0.2$'}),
-        pd.DataFrame.from_dict({'Confidence score': err[cnf<=0.1].tolist(), 'name': r'conf scr $ \leq 0.1$'}),
+        pd.DataFrame.from_dict({'cnf': err[cnf<=0.4].tolist(), 'Confidence score': r'c $ \leq 0.4$'}),
+        pd.DataFrame.from_dict({'cnf': err[cnf<=0.2].tolist(), 'Confidence score': r'c $ \leq 0.2$'}),
+        pd.DataFrame.from_dict({'cnf': err[cnf<=0.1].tolist(), 'Confidence score': r'c $ \leq 0.1$'}),
     ])
-    # df = pd.DataFrame()
-    # df = pd.concat(axis=0, ignore_index=True, objs=[
-    #     pd.DataFrame.from_dict({'Confidence score': clean_seq[:, joint_idx,2].tolist(), 'name': 'original videos'}),
-    #     pd.DataFrame.from_dict({'Confidence score': dist_seq[:,joint_idx,2].tolist()  , 'name': 'distorted videos'}),
-    # ])
-    sns.histplot(
-        data=df, x='Confidence score', hue='name', element="step", stat='count')
-    # sns.histplot(df, x="clean_conf")
-    # r = sns.histplot(df, x="err_dist", y="conf_scr", binwidth=(.1, .05), cbar=True, stat = 'probability')
 
-    plt.xlabel(r"Error magnitude $\epsilon = ||\tilde{x}-x||$")
-    plt.ylabel(r"Count")
-    plt.grid()
-    plt.savefig("plots/error_cnf_hist.png", bbox_inches='tight')
+    f, axs = plt.subplots(1, 2, figsize=(8,4))
+    f.tight_layout(pad = 1.0)
+    sns.histplot(
+        data=df, x='cnf', hue='Confidence score', element="step", stat='probability', ax=axs[0])
+    axs[0].set_xlabel(r"Error magnitude $||\tilde{x}-x||$")
+    axs[0].set_ylabel(r"Probability")
+    axs[0].grid()
+    axs[0].set_xlim(0, 1.6)
+    
+    df = pd.DataFrame()
+    df = pd.DataFrame.from_dict({'err': err.tolist(), 'cnf': cnf.tolist()})
 
     
+    rrr = sns.histplot(df, x="err", y="cnf", binwidth=(.1, .05), cbar=True, stat = 'probability', ax=axs[1])
+    cbar = rrr.collections[0].colorbar
+    cbar.set_ticks([0, .1, .2])
+    
+    axs[1].set_xlabel(r"Error magnitude $||\tilde{x}-x||$")
+    axs[1].set_ylabel(r"Confidence score")
+    axs[1].set_xlim(0, 1.6)
+    axs[1].set_ylim(0, 1.0)
+    axs[1].xaxis.set_minor_locator(AutoMinorLocator(5))
+    axs[1].yaxis.set_minor_locator(AutoMinorLocator(4))
+    axs[1].grid(which='both')
+    axs[1].ticklabel_format(style='scientific', axis='both',scilimits=[-1,1])
+    axs[0].ticklabel_format(style='scientific', axis='both',scilimits=[-1,1])
+    
+    plt.savefig("plots/error_cnf_hist.png", bbox_inches='tight')
+    plt.savefig("plots/error_cnf_hist.pdf", bbox_inches='tight')
+
 def plot_err_distribution(args):
     clean_seq, dist_seq = load_kpts(args)
     inp_distr = InputDistortion(args)
