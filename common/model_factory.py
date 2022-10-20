@@ -1,5 +1,6 @@
 from common.model  import *
 from common.model_conf_scr import *
+from common.model_poseformer import *
 def get_model(args, num_joints_in, num_joints_out, in_features):
     filter_widths = [int(x) for x in args.architecture.split(',')]
     if args.model == "VideoPose3D":
@@ -18,8 +19,14 @@ def get_model(args, num_joints_in, num_joints_out, in_features):
                                     filter_widths=filter_widths, causal=args.causal, dropout=args.dropout, channels=args.channels,
                                     dense=args.dense)
         return model_pos_train, model_pos
-    elif args.model == "PoseFormer":
-        pass
+    elif "PoseFormer" in args.model:
+        receptive_field = int(args.model.split('_')[1])
+        model_pos_train = PoseTransformer(num_frame=receptive_field, num_joints=num_joints_in, in_chans=2, embed_dim_ratio=32, depth=4,
+        num_heads=8, mlp_ratio=2., qkv_bias=True, qk_scale=None,drop_path_rate=0.1)
+
+        model_pos = PoseTransformer(num_frame=receptive_field, num_joints=num_joints_in, in_chans=2, embed_dim_ratio=32, depth=4,
+        num_heads=8, mlp_ratio=2., qkv_bias=True, qk_scale=None,drop_path_rate=0)
+        return model_pos_train, model_pos
     elif args.model == "ConfVideoPose3DV1":
         ModelClass  = ConfTemporalModelV1
     elif args.model == "ConfVideoPose3DV2":

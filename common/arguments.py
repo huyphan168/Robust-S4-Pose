@@ -33,7 +33,8 @@ def parse_args():
     parser.add_argument('--seed', type=int, default=1606, help=" set random seed")
     parser.add_argument('--gpu', type=str, default="0", help="set gpu id")
     parser.add_argument('-cfg', '--cfg-file', type=str, default=None, help="path to config file")
-
+    parser.add_argument('--parallel', action='store_true', help='training on multi gpu')
+    
     # Model arguments
     parser.add_argument('-m', '--model', default="VideoPose3D", help="model to be used")
     parser.add_argument('-l', '--loss', default='mpjpe', help="loss function to be used")

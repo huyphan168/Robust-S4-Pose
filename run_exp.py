@@ -96,8 +96,12 @@ print('INFO: Trainable parameter count:', model_params)
 
 # Move models to CUDA device(s)
 if torch.cuda.is_available():
+    if args.parallel:
+        model_pos       = nn.DataParallel(model_pos)
+        model_pos_train = nn.DataParallel(model_pos_train)
     model_pos = model_pos.cuda()
     model_pos_train = model_pos_train.cuda()
+    
 
 # Load weights from pretrained models
 if args.resume or args.evaluate:
@@ -134,9 +138,6 @@ if not args.evaluate:
     # from matplotlib import pyplot as plt
     # plt.plot(poses_train_2d[0][:,11,0])
     poses_train_2d = [inp_distr.get_train_inputs(i) for i in poses_train_2d]
-    # plt.plot(poses_train_2d[0][:,11,0])
-    # plt.savefig("abc.png", bbox_inches="tight")
-    # import ipdb; ipdb.set_trace()
     # Prepare optimizers
     lr = args.learning_rate
     optimizer = optim.Adam(model_pos_train.parameters(), lr=lr, amsgrad=True)    
@@ -221,8 +222,8 @@ if not args.evaluate:
                 for cam, batch, batch_2d in test_generator.next_epoch():
                     inputs_3d = torch.from_numpy(batch.astype('float32'))
                     inputs_2d = torch.from_numpy(batch_2d.astype('float32'))
-                    if args.smooth_conf_score == True:
-                        inputs_2d, inputs_3d = eval_data_prepare(inputs_2d, inputs_3d)
+                    if args.smooth_conf_score == True or "PoseFormer" in args.model:
+                        inputs_2d, inputs_3d = eval_data_prepare(inputs_2d, inputs_3d, receptive_field)
                     
                     if torch.cuda.is_available():
                         inputs_3d = inputs_3d.cuda()
