@@ -56,9 +56,9 @@ def laplace_func(x, mu, b):
 def compute_distance(seq1, seq2):
     return np.sqrt(((seq1 - seq2)**2).sum(axis=-1))
 
-COCO_JOINTS = ["nose","left_eye","right_eye","left_ear","right_ear","left_shoulder",
-                "right_shoulder","left_elbow","right_elbow","left_wrist","right_wrist",
-                "left_hip","right_hip","left_knee","right_knee","left_ankle","right_ankle"]
+COCO_JOINTS = ["nose","left_eye","right_eye","left_ear","right_ear","Left Shoulder",
+                "right_shoulder","left_elbow","Right Elbow","left_wrist","right_wrist",
+                "Left Hip","Right Hip","left_knee","right_knee","Left Ankle","Right Ankle"]
 
 def plot_conf_scr_heatmap(args):
     dist_kpts   = load_kpt(args.set)
@@ -149,25 +149,10 @@ def plot_err_histogram(args):
     plt.savefig("plots/error_cnf_hist.png", bbox_inches='tight')
     plt.savefig("plots/error_cnf_hist.pdf", bbox_inches='tight')
 
-def plot_err_distribution(args):
+def plot_joint_err_hist(args):
     clean_seq, dist_seq = load_kpts(args)
-    inp_distr = InputDistortion(args)
-    augm_seq  = inp_distr.get_train_inputs(clean_seq)
     tar_err = compute_distance(clean_seq[...,:2], dist_seq[...,:2])
-    sim_err = compute_distance(augm_seq[...,:2], clean_seq[...,:2])
-    conf =  clean_seq[...,2]-dist_seq[...,2]
-    # conf_t = np.diff(conf[:,8].flatten())
-    # diff_t = np.diff(diff[:,8].flatten())
-    
-    ######### Plot error sequence
-    # viz_joints = [7, 9, 10]
-    # f, axs = plt.subplots(len(viz_joints),2,figsize=(16,8))
-    # for i, j in enumerate(viz_joints):
-    #     axs[i,0].plot(tar_err[:,j])
-    #     axs[i,1].plot(sim_err[:,j])
-    # plt.savefig("plots/error_seq.png", bbox_inches='tight')
-
-    # # ####### Plot histogram ########
+    # ####### Plot histogram ########
     # viz_joints = np.arange(1,17)
     # n_rows, n_cols = 4, 4
     # f, axs = plt.subplots(n_rows,n_cols,figsize=(10,11))
@@ -186,13 +171,50 @@ def plot_err_distribution(args):
     #         axs[i,j].set_xlim(-1,1)
     #         axs[i,j].set_ylim(0,3.0)
     #         axs[i,j].set_title(COCO_JOINTS[viz_joints[jidx]])
+    viz_joints = np.array([5, 8, 11, 16])
+    n_rows, n_cols = 1, 4
+    f, axs = plt.subplots(n_rows,n_cols,figsize=(10,3))
+    f.tight_layout(pad = 2.0)
+
+    for j in range(n_cols):
+        jidx = j
+        if jidx >= len(viz_joints):
+            continue
+        err_seq = tar_err[:, viz_joints[jidx]]
+        dist = (dist_seq-clean_seq)[:, viz_joints[jidx], 0]
+        no_noise_msk = err_seq < 0.1
+        hist, bins = np.histogram(dist[np.logical_not(no_noise_msk)], bins=100, density=True)
+        axs[j].hist(bins[:-1], bins, weights=hist)
+        axs[j].set_xlim(-1,1)
+        axs[j].set_ylim(0,3.0)
+        axs[j].set_title(COCO_JOINTS[viz_joints[jidx]])
+    axs[0].set_ylabel(args.set)
     
-    # plt.savefig("plots/error_histogram.png")
+    plt.savefig("plots/error_histogram_joints_%s.png" % args.set, bbox_inches='tight')
+    plt.savefig("plots/error_histogram_joints_%s.pdf" % args.set, bbox_inches='tight')
+
+def plot_err_distribution(args):
+    clean_seq, dist_seq = load_kpts(args)
+    inp_distr = InputDistortion(args)
+    augm_seq  = inp_distr.get_train_inputs(clean_seq)
+    tar_err = compute_distance(clean_seq[...,:2], dist_seq[...,:2])
+    sim_err = compute_distance(augm_seq[...,:2], clean_seq[...,:2])
+    conf =  clean_seq[...,2]-dist_seq[...,2]
+    # conf_t = np.diff(conf[:,8].flatten())
+    # diff_t = np.diff(diff[:,8].flatten())
+    
+    ######### Plot error sequence
+    # viz_joints = [7, 9, 10]
+    # f, axs = plt.subplots(len(viz_joints),2,figsize=(16,8))
+    # for i, j in enumerate(viz_joints):
+    #     axs[i,0].plot(tar_err[:,j])
+    #     axs[i,1].plot(sim_err[:,j])
+    # plt.savefig("plots/error_seq.png", bbox_inches='tight')
 
     # # plt.scatter(tar_err[:, joint_idx], dist_seq[:,joint_idx,2])
     # # plt.scatter(tar_err[:, joint_idx], clean_seq[:,joint_idx,2])
-    plt.title("Histogram of the detected keypoints confidence score")
-    plt.savefig("plots/conf_scr_hist.png", bbox_inches='tight')
+    # plt.title("Histogram of the detected keypoints confidence score")
+    # plt.savefig("plots/conf_scr_hist.png", bbox_inches='tight')
 
     # f, axs = plt.subplots(4,1,figsize=(10,10))
     # joint_idx = 1
@@ -228,7 +250,8 @@ def plot_err_distribution(args):
 def main(args):
     # plot_err_distribution(args)
     # plot_conf_scr_heatmap(args)
-    plot_err_histogram(args)
+    # plot_err_histogram(args)
+    plot_joint_err_hist(args)
     
     
 if __name__ == '__main__':

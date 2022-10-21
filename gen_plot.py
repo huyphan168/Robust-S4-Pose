@@ -61,7 +61,8 @@ def plot_exp_series(args, exp_series, x_ticks, xlabel="Distortion Type", ylabel=
     plt.figure(figsize=(14,8))
     records    = [] 
     for i, exp_id in enumerate(exp_series):
-        color = colors[i]
+        folder = exp_series[exp_id]['folder'] if 'folder' in exp_series[exp_id] else exp_id
+        color = colors[i % len(colors)]
         lstyle= None
         if plot_bounds is not None:    
             if  i == plot_bounds[0]:
@@ -73,7 +74,7 @@ def plot_exp_series(args, exp_series, x_ticks, xlabel="Distortion Type", ylabel=
                     color  = 'k'
         
         mpjpe_vals, pmpjpe_vals = plot_exp(plt.gca(), 
-            osp.join(args.eval_results, exp_id),
+            osp.join(args.eval_results, folder),
             exp_series[exp_id]['exps'],
             name=exp_series[exp_id]['label'],
             shift= (i - len(exp_series)//2)*0.4 + 0.2,
@@ -247,6 +248,60 @@ def plot_mpjpe_rel_mpjpe(args, exps_list, out_file="rel-mpjpe-compare.png", metr
             )
             )
         exp_series[exp] = {'label': label, 'exps': list_plot_all}
+    x_ticks= [i[0] for i in distortion_types]
+    title  = "[%s] Performance on distored images input" % (model_name)
+    df = plot_exp_series(args,
+        exp_series,
+        x_ticks,
+        title=title,
+        out_file=out_file,
+        metrics = metrics,
+        plot_bounds=plot_bounds
+        )
+    return df
+
+def plot_mpjpe_lite_hrnet_mpjpe(args, exps_list, out_file="rel-mpjpe-compare.png", metrics =['0.1'], plot_bounds=None, model_name = "VideoPose3D" ):
+    exp_series = {}
+    color = 'bisque'
+    distortion_types  = [
+        ('clean', 'gray'),
+        # ('brightness',color),
+        ('gaussian_noise',color),
+        ('impulse_noise',color),
+        ('temporal' ,color),
+        ('erase' ,color),
+        ('crop' ,color),
+        ('motion_blur' ,color),
+        # ('fog' ,color),
+    ]
+    for i, (exp, ckpt, label) in enumerate(exps_list):
+        list_plot_all = []
+        for t, c in distortion_types:
+            list_plot_all.append((
+                '%s_hrnet_%s_None_None' % (
+                    ckpt, t, 
+                ), t,  c
+            )
+            )
+        exp_series['hrnet_'+exp] = {
+            'label': "[TESTED ON HRNET-KPTS] "  + label, 
+            'exps': list_plot_all,
+            'folder': exp}
+        
+        list_plot_all = []
+        for t, c in distortion_types:
+            list_plot_all.append((
+                '%s_litehrnet_%s_None_None' % (
+                    ckpt, t, 
+                ), t,  c
+            )
+            )
+        
+        exp_series['litehrnet_'+exp] = {
+            'label': "[TESTED ON Lite-HRNET-KPTS] "  + label, 
+            'exps': list_plot_all,
+            'folder': exp}
+        
     x_ticks= [i[0] for i in distortion_types]
     title  = "[%s] Performance on distored images input" % (model_name)
     df = plot_exp_series(args,
@@ -482,6 +537,15 @@ def plot_conf_scr_learning(args):
 
 def plot_receptive_field(args):
     exps_list = [
+         # ----------- 1 FRAME -------------------
+        ("VideoPose3D-hrnet_mix-a1,1,1-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
+        "epoch_80",
+        "VP3D (1 frame) on MIX-AUG hrnet det"),
+
+        ("ConfVideoPose3DV34-hrnet_mix-a1,1,1-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_det",
+        "epoch_80",
+        "Conf-VP3D-V34 (1 frame) on MIX-AUG gamma=1 hrnet det"),
+
         # ----------- 9 FRAMES -------------------
         ("VideoPose3D-hrnet_mix-a3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
         "epoch_80",
@@ -513,6 +577,19 @@ def plot_receptive_field(args):
 
 
     exps_list = [
+        # ----------- 1 FRAME -------------------
+        ("VideoPose3D-hrnet_clean-a1,1,1-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
+        "epoch_80",
+        "VP3D (1 frame) on H36M "),
+        
+        ("VideoPose3D-hrnet_mix-a1,1,1-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
+        "epoch_80",
+        "VP3D (1 frame) on dist-H36M-imgs"),
+
+        ("VideoPose3D-hrnet_clean-a1,1,1-b1024-dj_gauss_0.3-dp_rand_0.5-df0.5-lss_exc_None-conf_None",
+        "epoch_80",
+        "VP3D (9 frames) on H36M, $\sigma=0.3, p=30\%, k=50\%$"),
+
         # ----------- 9 FRAMES -------------------
         ("VideoPose3D-hrnet_clean-a3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
         "epoch_80",
@@ -556,6 +633,25 @@ def plot_receptive_field(args):
     ]
     df_parts = plot_mpjpe_rel_mpjpe(args, exps_list, out_file="mpjpe_dist_img_receptive_field_gauss.png", metrics=[0.1] , plot_bounds=[0,1])
 
+def plot_lite_hrnet(args):
+    exps_list = [
+        ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
+        "epoch_80",
+        "VP3D trained on CLEAN hrnet det"),
+
+        ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_0.5-df0.5-lss_exc_None-conf_None",
+        "epoch_80",
+        "VP3D on CLEAN + noise $\sigma=0.3$ hrnet det."),
+
+        ("VideoPose3D-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
+        "epoch_80",
+        "VP3D (27 frames) on dist-H36M-imgs"),
+
+        ("ConfVideoPose3DV34-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_det",
+        "epoch_80",
+        "Conf-VP3D-V34 on MIX-AUG gamma=1 hrnet det"),
+    ]
+    plot_mpjpe_lite_hrnet_mpjpe(args, exps_list, out_file="mpjpe_dist_img_litehrnet.png", metrics=[0.1], plot_bounds=[0])
 
 def main(args):
     # plot_dist_kpts(args)    
@@ -563,7 +659,8 @@ def main(args):
     # plot_mpjpe_at_t_img_distortion(args)
     # plot_conf_scr_learning(args)
     # plot_mpjpe_at_0_1_params_analysis(args)
-    plot_receptive_field(args)
+    # plot_receptive_field(args)
+    plot_lite_hrnet(args)
 
 if __name__ == "__main__":
     args = parse_args()

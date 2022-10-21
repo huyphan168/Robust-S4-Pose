@@ -1,0 +1,10 @@
+#!/bin/bash
+scripts/litehrnet_dist_img_eval_temporal_gauss_noise.sh $1 clean
+scripts/litehrnet_dist_img_eval_temporal_gauss_noise.sh $1 erase
+scripts/litehrnet_dist_img_eval_temporal_gauss_noise.sh $1 temporal
+scripts/litehrnet_dist_img_eval_temporal_gauss_noise.sh $1 crop
+scripts/litehrnet_dist_img_eval_temporal_gauss_noise.sh $1 fog
+scripts/litehrnet_dist_img_eval_temporal_gauss_noise.sh $1 brightness
+scripts/litehrnet_dist_img_eval_temporal_gauss_noise.sh $1 gaussian_noise
+scripts/litehrnet_dist_img_eval_temporal_gauss_noise.sh $1 motion_blur
+scripts/litehrnet_dist_img_eval_temporal_gauss_noise.sh $1 impulse_noise

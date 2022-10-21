@@ -21,8 +21,9 @@ def parse_args():
     args   = parser.parse_args()
     return args
 
+detector = 'litehrnet'
 def load_kpt(set):
-    kpt_file = 'data/data_2d_h36m_hrnet_' + set + '.npz'
+    kpt_file = 'data/data_2d_h36m_%s_' % detector + set + '.npz'
     kpts = np.load(kpt_file, allow_pickle=True)
     kpts = kpts['positions_2d'].item()
     return kpts
@@ -71,7 +72,7 @@ def process_data(args):
             print("Ratio = %f, thresh = %.3f" % (r,thresh))
         plt.savefig("plots/cdf_%s.png" % args.set, bbox_inches='tight')
     else:
-        np.savez_compressed("data/eval_dist_h36m_hrnet_%s.npz" % args.set, eval_dist = diff)
+        np.savez_compressed("data/eval_dist_h36m_%s_%s.npz" % (detector, args.set), eval_dist = diff)
     
     
 def main(args):
