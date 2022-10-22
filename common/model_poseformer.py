@@ -142,6 +142,11 @@ class PoseTransformer(nn.Module):
             nn.Linear(embed_dim , out_dim),
         )
 
+    def set_bn_momentum(self, momentum):
+        self.expand_bn.momentum = momentum
+        for bn in self.layers_bn:
+            bn.momentum = momentum
+
     def receptive_field(self):
         return self.num_frame
 

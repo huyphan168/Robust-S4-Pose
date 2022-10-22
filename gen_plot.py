@@ -651,7 +651,26 @@ def plot_lite_hrnet(args):
         "epoch_80",
         "Conf-VP3D-V34 on MIX-AUG gamma=1 hrnet det"),
     ]
-    plot_mpjpe_lite_hrnet_mpjpe(args, exps_list, out_file="mpjpe_dist_img_litehrnet.png", metrics=[0.1], plot_bounds=[0])
+    plot_mpjpe_lite_hrnet_mpjpe(args, exps_list, out_file="mpjpe_trained_on_hrnet.png", metrics=[0.1], plot_bounds=[0])
+
+    exps_list = [
+        ("VideoPose3D-litehrnet_clean-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
+        "epoch_80",
+        "VP3D trained on CLEAN hrnet det"),
+
+        ("VideoPose3D-litehrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_0.5-df0.5-lss_exc_None-conf_None",
+        "epoch_80",
+        "VP3D on CLEAN + noise $\sigma=0.3$ hrnet det."),
+
+        ("VideoPose3D-litehrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
+        "epoch_80",
+        "VP3D (27 frames) on dist-H36M-imgs"),
+
+        ("ConfVideoPose3DV34-litehrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_det",
+        "epoch_80",
+        "Conf-VP3D-V34 on MIX-AUG gamma=1 hrnet det"),
+    ]
+    plot_mpjpe_lite_hrnet_mpjpe(args, exps_list, out_file="mpjpe_trained_on_litehrnet.png", metrics=[0.1], plot_bounds=[0])
 
 def main(args):
     # plot_dist_kpts(args)    

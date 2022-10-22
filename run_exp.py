@@ -27,7 +27,7 @@ from common.model  import *
 from common.model_factory import get_model
 from common.generators import ChunkedGenerator, UnchunkedGenerator
 from time import time
-from common.utils import deterministic_random, load_cfg_from_file
+from common.utils import deterministic_random, load_cfg_from_file, set_momentum
 from tqdm import tqdm
 import pandas as pd
 import os.path as osp
@@ -304,7 +304,8 @@ if not args.evaluate:
         
         # Decay BatchNorm momentum
         momentum = initial_momentum * np.exp(-epoch/args.epochs * np.log(initial_momentum/final_momentum))
-        model_pos_train.set_bn_momentum(momentum)
+        set_momentum(model_pos_train, momentum)
+        # model_pos_train.set_bn_momentum(momentum)
             
         # Save checkpoint if necessary
         def save_ckpt(chk_path):

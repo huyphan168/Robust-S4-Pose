@@ -59,3 +59,8 @@ def load_cfg_from_file(args, file):
             _cfg[_k] = cfg[k]
         args.__dict__.update(_cfg)
     return args
+
+def set_momentum(model, momentum):
+    for layer in model.modules():
+        if isinstance(layer, torch.nn.modules.batchnorm.BatchNorm1d): 
+            layer.momentum = momentum
