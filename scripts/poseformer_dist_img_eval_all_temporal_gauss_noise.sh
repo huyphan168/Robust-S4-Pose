@@ -1,0 +1,10 @@
+#!/bin/bash
+scripts/poseformer_dist_img_eval_temporal_gauss_noise.sh $1 clean
+scripts/poseformer_dist_img_eval_temporal_gauss_noise.sh $1 erase
+scripts/poseformer_dist_img_eval_temporal_gauss_noise.sh $1 temporal
+scripts/poseformer_dist_img_eval_temporal_gauss_noise.sh $1 crop
+scripts/poseformer_dist_img_eval_temporal_gauss_noise.sh $1 fog
+scripts/poseformer_dist_img_eval_temporal_gauss_noise.sh $1 brightness
+scripts/poseformer_dist_img_eval_temporal_gauss_noise.sh $1 gaussian_noise
+scripts/poseformer_dist_img_eval_temporal_gauss_noise.sh $1 motion_blur
+scripts/poseformer_dist_img_eval_temporal_gauss_noise.sh $1 impulse_noise

@@ -109,8 +109,8 @@ if args.resume or args.evaluate:
     print('Loading checkpoint', chk_filename)
     checkpoint = torch.load(chk_filename, map_location=lambda storage, loc: storage)
     print('This model was trained for {} epochs'.format(checkpoint['epoch']))
-    model_pos_train.load_state_dict(checkpoint['model_pos'])
-    model_pos.load_state_dict(checkpoint['model_pos'])
+    model_pos_train.load_state_dict(checkpoint['model_pos'], strict=False)
+    model_pos.load_state_dict(checkpoint['model_pos'], strict=False)
     model_traj = None
 
 # Generate test data  
@@ -206,6 +206,8 @@ if not args.evaluate:
             loss_total = loss_3d_pos
             loss_total.backward()
             optimizer.step()
+
+            break
         losses_3d_train.append(epoch_loss_3d_train / N)
 
         # End-of-epoch evaluation
@@ -248,30 +250,34 @@ if not args.evaluate:
                 epoch_loss_3d_train_eval = 0
                 epoch_loss_traj_train_eval = 0
                 epoch_loss_2d_train_labeled_eval = 0
-                N = 0
-                for cam, batch, batch_2d in train_generator_eval.next_epoch():
-                    if batch_2d.shape[1] == 0:
-                        # This can only happen when downsampling the dataset
-                        continue
+                N = 1 # SHOULD BE ZERO!!
+                # for cam, batch, batch_2d in train_generator_eval.next_epoch():
+                #     if batch_2d.shape[1] == 0:
+                #         # This can only happen when downsampling the dataset
+                #         continue
                         
-                    inputs_3d = torch.from_numpy(batch.astype('float32'))
-                    inputs_2d = torch.from_numpy(batch_2d.astype('float32'))
-                    if torch.cuda.is_available():
-                        inputs_3d = inputs_3d.cuda()
-                        inputs_2d = inputs_2d.cuda()
-                    inputs_traj = inputs_3d[:, :, :1].clone()
-                    inputs_3d[:, :, 0] = 0
-                    # Smooth conf. score (if enabled)
-                    # inputs_2d = inp_distr.smooth_conf_scr(inputs_2d)
-                    # Compute 3D poses
-                    predicted_3d_pos = model_pos(inputs_2d)
-                    # Select joints for computing losses
-                    predicted_3d_pos = inp_distr.get_loss_joints(predicted_3d_pos)
-                    inputs_3d        = inp_distr.get_loss_joints(inputs_3d)
+                #     inputs_3d = torch.from_numpy(batch.astype('float32'))
+                #     inputs_2d = torch.from_numpy(batch_2d.astype('float32'))
 
-                    loss_3d_pos = mpjpe(predicted_3d_pos, inputs_3d)
-                    epoch_loss_3d_train_eval += inputs_3d.shape[0]*inputs_3d.shape[1] * loss_3d_pos.item()
-                    N += inputs_3d.shape[0]*inputs_3d.shape[1]
+                #     if args.smooth_conf_score == True or "PoseFormer" in args.model:
+                #         inputs_2d, inputs_3d = eval_data_prepare(inputs_2d, inputs_3d, receptive_field)
+
+                #     if torch.cuda.is_available():
+                #         inputs_3d = inputs_3d.cuda()
+                #         inputs_2d = inputs_2d.cuda()
+                #     inputs_traj = inputs_3d[:, :, :1].clone()
+                #     inputs_3d[:, :, 0] = 0
+                #     # Smooth conf. score (if enabled)
+                #     # inputs_2d = inp_distr.smooth_conf_scr(inputs_2d)
+                #     # Compute 3D poses
+                #     predicted_3d_pos = model_pos(inputs_2d)
+                #     # Select joints for computing losses
+                #     predicted_3d_pos = inp_distr.get_loss_joints(predicted_3d_pos)
+                #     inputs_3d        = inp_distr.get_loss_joints(inputs_3d)
+
+                #     loss_3d_pos = mpjpe(predicted_3d_pos, inputs_3d)
+                #     epoch_loss_3d_train_eval += inputs_3d.shape[0]*inputs_3d.shape[1] * loss_3d_pos.item()
+                #     N += inputs_3d.shape[0]*inputs_3d.shape[1]
 
                 losses_3d_train_eval.append(epoch_loss_3d_train_eval / N)
 
@@ -363,10 +369,9 @@ def evaluate(test_generator, action=None, return_predictions=False, use_trajecto
             inputs_2d = torch.from_numpy(batch_2d.astype('float32'))
             inputs_3d = torch.from_numpy(batch.astype('float32'))
             
-            if args.smooth_conf_score == True:
+            if args.smooth_conf_score == True or "PoseFormer" in args.model:
                 inputs_2d, inputs_3d = eval_data_prepare(inputs_2d, inputs_3d)
                 # inputs_2d, inputs_3d = eval_data_prepare(inputs_2d[0, None])
-                # import ipdb; ipdb.set_trace()
                 
             if torch.cuda.is_available():
                 inputs_2d = inputs_2d.cuda()
