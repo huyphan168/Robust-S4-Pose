@@ -110,7 +110,7 @@ if args.resume or args.evaluate:
     checkpoint = torch.load(chk_filename, map_location=lambda storage, loc: storage)
     print('This model was trained for {} epochs'.format(checkpoint['epoch']))
     model_pos_train.load_state_dict(checkpoint['model_pos'], strict=False)
-    model_pos.load_state_dict(checkpoint['model_pos'], strict=False)
+    model_pos.load_state_dict(checkpoint['model_pos'])
     model_traj = None
 
 # Generate test data  
@@ -207,7 +207,6 @@ if not args.evaluate:
             loss_total.backward()
             optimizer.step()
 
-            break
         losses_3d_train.append(epoch_loss_3d_train / N)
 
         # End-of-epoch evaluation

@@ -7,5 +7,5 @@ python run_exp.py \
     --eval-ignore-parts file_0.1 \
     -m PoseFormer_27 \
     -no-tta \
-    --subjects-test S1,S5
-    # -str '' \
+    --parallel \
+    -str '' \

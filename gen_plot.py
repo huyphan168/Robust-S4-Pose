@@ -628,8 +628,6 @@ def plot_receptive_field(args):
         ("VideoPose3D-hrnet_clean-a3,3,3,3-b1024-dj_gauss_0.3-dp_rand_0.5-df0.5-lss_exc_None-conf_None",
         "epoch_80",
         "VP3D (81 frames) on H36M, $\sigma=0.3, p=30\%, k=50\%$"),
-
-        
     ]
     df_parts = plot_mpjpe_rel_mpjpe(args, exps_list, out_file="mpjpe_dist_img_receptive_field_gauss.png", metrics=[0.1] , plot_bounds=[0,1])
 
@@ -672,6 +670,24 @@ def plot_lite_hrnet(args):
     ]
     plot_mpjpe_lite_hrnet_mpjpe(args, exps_list, out_file="mpjpe_trained_on_litehrnet.png", metrics=[0.1], plot_bounds=[0])
 
+
+def plot_poseformer(args):
+    exps_list = [
+        ("PoseFormer_27-hrnet_clean-a3,3,3-b10240-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
+        "epoch_80",
+        "PoseFormer (27 frames) on CLEAN hrnet det"),
+
+        ("PoseFormer_27-hrnet_mix-a3,3,3-b10240-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
+        "epoch_80",
+        "PoseFormer (27 frames) on MIX-AUG hrnet det"),
+
+        ("PoseFormer_27-hrnet_clean-a3,3,3-b10240-dj_gauss_0.3-dp_rand_0.5-df0.5-lss_exc_None-conf_None",
+        "epoch_80",
+        "PoseFormer (27 frames) on H36M, $\sigma=0.3, p=30\%, k=50\%$"),      
+    ]
+    plot_mpjpe_rel_mpjpe(args, exps_list, out_file="mpjpe_poseformer.png", metrics=[0.1], plot_bounds=[0])
+
+
 def main(args):
     # plot_dist_kpts(args)    
     # plot_dist_imgs(args)
@@ -679,7 +695,8 @@ def main(args):
     # plot_conf_scr_learning(args)
     # plot_mpjpe_at_0_1_params_analysis(args)
     # plot_receptive_field(args)
-    plot_lite_hrnet(args)
+    # plot_lite_hrnet(args)
+    plot_poseformer(args)
 
 if __name__ == "__main__":
     args = parse_args()
