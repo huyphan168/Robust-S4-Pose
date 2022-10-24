@@ -309,8 +309,10 @@ if not args.evaluate:
         
         # Decay BatchNorm momentum
         momentum = initial_momentum * np.exp(-epoch/args.epochs * np.log(initial_momentum/final_momentum))
-        set_momentum(model_pos_train, momentum)
-        # model_pos_train.set_bn_momentum(momentum)
+        if args.parallel:
+            set_momentum(model_pos_train, momentum)
+        else:
+            model_pos_train.set_bn_momentum(momentum)
             
         # Save checkpoint if necessary
         def save_ckpt(chk_path):
