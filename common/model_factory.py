@@ -1,7 +1,5 @@
 from common.model  import *
 from common.model_conf_scr import *
-from common.model_poseformer import *
-from common.model_attention_3dhp import *
 
 def get_model(args, num_joints_in, num_joints_out, in_features):
     filter_widths = [int(x) for x in args.architecture.split(',')]
@@ -23,6 +21,7 @@ def get_model(args, num_joints_in, num_joints_out, in_features):
         return model_pos_train, model_pos
     
     elif args.model == "Attention3DHP":
+        from common.model_attention_3dhp import Attention3DHPModelOptimized1f
         if not args.disable_optimizations and not args.dense and args.stride == 1:
             # Use optimized model for single-frame predictions
             model_pos_train = Attention3DHPModelOptimized1f(num_joints_in, in_features, num_joints_out,
@@ -35,8 +34,20 @@ def get_model(args, num_joints_in, num_joints_out, in_features):
                                      filter_widths=filter_widths, causal=args.causal, dropout=args.dropout,
                                      channels=args.channels, dense=args.dense)
         return model_pos_train, model_pos
+    
+    elif args.model == 'SRNet':
+        from common.model_srnet import SRNetModel, SRNetOptimized1f
 
+        model_pos_train = TemporalModelOptimized1f(num_joints_in, in_features, num_joints_out,
+                                                filter_widths=filter_widths, causal=args.causal, dropout=args.dropout,
+                                                channels=args.channels)
+
+        model_pos = TemporalModel(num_joints_in, in_features, num_joints_out,
+                                    filter_widths = filter_widths, causal = args.causal, dropout = args.dropout, channels = args.channels, dense = args.dense)
+        return model_pos_train, model_pos
+        
     elif "PoseFormer" in args.model:
+        from common.model_poseformer import PoseTransformer
         receptive_field = int(args.model.split('_')[1])
         model_pos_train = PoseTransformer(num_frame=receptive_field, num_joints=num_joints_in, in_chans=2, embed_dim_ratio=32, depth=4,
         num_heads=8, mlp_ratio=2., qkv_bias=True, qk_scale=None,drop_path_rate=0.1)
@@ -44,6 +55,7 @@ def get_model(args, num_joints_in, num_joints_out, in_features):
         model_pos = PoseTransformer(num_frame=receptive_field, num_joints=num_joints_in, in_chans=2, embed_dim_ratio=32, depth=4,
         num_heads=8, mlp_ratio=2., qkv_bias=True, qk_scale=None,drop_path_rate=0)
         return model_pos_train, model_pos
+
     elif args.model == "ConfVideoPose3DV1":
         ModelClass  = ConfTemporalModelV1
     elif args.model == "ConfVideoPose3DV2":
