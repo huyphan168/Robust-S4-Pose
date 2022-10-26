@@ -60,6 +60,7 @@ def plot_exp_series(args, exp_series, x_ticks, xlabel="Distortion Type", ylabel=
     colors     = plt.rcParams['axes.prop_cycle'].by_key()['color']
     plt.figure(figsize=(14,8))
     records    = [] 
+    baseline_mpjpe = None
     for i, exp_id in enumerate(exp_series):
         folder = exp_series[exp_id]['folder'] if 'folder' in exp_series[exp_id] else exp_id
         color = colors[i % len(colors)]
@@ -86,7 +87,15 @@ def plot_exp_series(args, exp_series, x_ticks, xlabel="Distortion Type", ylabel=
         )
         info_dict = {'name': exp_id}
         info_dict.update({k:v for k,v in zip(x_ticks, mpjpe_vals)})
-        info_dict['avg_mpjpe'] = round(np.array(mpjpe_vals).mean(), 2)
+        info_dict['avg_mpjpe'] = round(np.array(mpjpe_vals[1:]).mean(), 2) #skip the original (clean)
+        records.append(info_dict)
+        if i == 0:
+            baseline_mpjpe = mpjpe_vals
+        # Compare with baseline model
+        info_dict = {'name': '[BASELINE_DIFF] %s' %exp_id}
+        mpjpe_vals_diff = [round(x,2) for x in np.array(mpjpe_vals) - baseline_mpjpe]
+        info_dict.update({k:v for k,v in zip(x_ticks, mpjpe_vals_diff)})
+        info_dict['avg_mpjpe'] = round(np.array(mpjpe_vals_diff[1:]).mean(), 2) #skip the original (clean)
         records.append(info_dict)
     
     plt.xticks(np.arange(len(x_ticks)), x_ticks)
@@ -396,10 +405,6 @@ def plot_mpjpe_at_t_img_distortion(args):
         "epoch_80",
         "VP3D on H36M "),
         
-        ("VideoPose3D-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
-        "epoch_80",
-        "VP3D on dist-H36M-imgs"),
-        
         ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.05-dp_rand_0.2-df0.2-lss_exc_None-conf_None",
         "epoch_80",
         "VP3D on H36M, $\sigma=0.05, p=20\%, k=20\%$"),
@@ -411,6 +416,10 @@ def plot_mpjpe_at_t_img_distortion(args):
         ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_0.5-df0.5-lss_exc_None-conf_None",
         "epoch_80",
         "VP3D on H36M, $\sigma=0.3, p=50\%, k=50\%$"),
+
+        ("VideoPose3D-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
+        "epoch_80",
+        "VP3D on dist-H36M-imgs"),
     ]
     plot_mpjpe_rel_mpjpe(args, exps_list, out_file="mpjpe_dist_img_gauss.png", metrics=[0.1] , plot_bounds=[0,1])
 
@@ -677,27 +686,60 @@ def plot_poseformer(args):
         "epoch_80",
         "PoseFormer (27 frames) on CLEAN hrnet det"),
 
-        ("PoseFormer_27-hrnet_mix-a3,3,3-b10240-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
-        "epoch_80",
-        "PoseFormer (27 frames) on MIX-AUG hrnet det"),
-
         ("PoseFormer_27-hrnet_clean-a3,3,3-b10240-dj_gauss_0.3-dp_rand_0.5-df0.5-lss_exc_None-conf_None",
         "epoch_80",
-        "PoseFormer (27 frames) on H36M, $\sigma=0.3, p=30\%, k=50\%$"),      
+        "PoseFormer (27 frames) on H36M, $\sigma=0.3, p=30\%, k=50\%$"),   
+
+         ("PoseFormer_27-hrnet_mix-a3,3,3-b10240-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
+        "epoch_80",
+        "PoseFormer (27 frames) on MIX-AUG hrnet det"),   
     ]
     plot_mpjpe_rel_mpjpe(args, exps_list, out_file="mpjpe_poseformer.png", metrics=[0.1], plot_bounds=[0])
 
 
+def plot_attention3dhp(args):
+    exps_list = [
+        ("Attention3DHP-hrnet_clean-a3,3,3,3,3-b4096-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
+        "epoch_80",
+        "Attention3DHP (243 frames) on CLEAN hrnet det"),
+
+        ("Attention3DHP-hrnet_clean-a3,3,3,3,3-b4096-dj_gauss_0.3-dp_rand_0.5-df0.5-lss_exc_None-conf_None",
+        "epoch_80",
+        "Attention3DHP (243 frames) on H36M, $\sigma=0.3, p=30\%, k=50\%$"), 
+
+        ("Attention3DHP-hrnet_mix-a3,3,3,3,3-b4096-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
+        "epoch_80",
+        "Attention3DHP (243 frames) on MIX-AUG hrnet det"),
+    ]
+    plot_mpjpe_rel_mpjpe(args, exps_list, out_file="mpjpe_attention3dhp.png", metrics=[0.1], plot_bounds=[0])
+
+def plot_srnet(args):
+    exps_list = [
+        ("SRNet-hrnet_clean-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
+        "epoch_80",
+        "SRNet (27 frames) on CLEAN hrnet det"),
+
+        ("SRNet-hrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_0.5-df0.5-lss_exc_None-conf_None",
+        "epoch_80",
+        "SRNet (27 frames) on H36M, $\sigma=0.3, p=30\%, k=50\%$"), 
+
+        ("SRNet-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
+        "epoch_80",
+        "SRNet (27 frames) on MIX-AUG hrnet det"),
+    ]
+    plot_mpjpe_rel_mpjpe(args, exps_list, out_file="mpjpe_srnet.png", metrics=[0.1], plot_bounds=[0])
+
 def main(args):
     # plot_dist_kpts(args)    
     # plot_dist_imgs(args)
-    # plot_mpjpe_at_t_img_distortion(args)
+    plot_mpjpe_at_t_img_distortion(args)
     # plot_conf_scr_learning(args)
     # plot_mpjpe_at_0_1_params_analysis(args)
     # plot_receptive_field(args)
-    # plot_lite_hrnet(args)
+    plot_lite_hrnet(args)
     plot_poseformer(args)
-
+    plot_attention3dhp(args)
+    plot_srnet(args)
 if __name__ == "__main__":
     args = parse_args()
     main(args)

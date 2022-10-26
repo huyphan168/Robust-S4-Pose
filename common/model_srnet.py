@@ -16,9 +16,9 @@ class SRNetModelBase(nn.Module):
     """
 
     def __init__(self, num_joints_in, in_features, num_joints_out,
-                 filter_widths, causal, dropout, channels):
+                 filter_widths, causal, dropout, channels, args):
         super().__init__()
-
+        self.args = args
         # Validate input
         for fw in filter_widths:
             assert fw % 2 != 0, 'Only odd filter widths are supported'
@@ -112,7 +112,6 @@ class SRNetModelBase(nn.Module):
         sz = x.shape[:3]
 
         x_out = x
-
         x = x.view(x.shape[0], x.shape[1], -1)
         x = x.permute(0, 2, 1)
 
@@ -123,7 +122,7 @@ class SRNetModelBase(nn.Module):
 
         y = y.view(sz[0], -1, self.num_joints_out, 3)
 
-        if args.norm == 'lcn':
+        if self.args.norm == 'lcn':
             pose_2d = x_out + y[...,:2]
             y = torch.cat([pose_2d, y[...,2:3]], dim=-1)
         return y
@@ -135,7 +134,7 @@ class SRNetModel(SRNetModelBase):
     """
 
     def __init__(self, num_joints_in, in_features, num_joints_out,
-                 filter_widths, causal=False, dropout=0.25, channels=1024, dense=False):
+                 filter_widths, causal=False, dropout=0.25, channels=1024, dense=False, args=None):
         """
         Initialize this model.
 
@@ -149,11 +148,11 @@ class SRNetModel(SRNetModelBase):
         channels -- number of convolution channels
         dense -- use regular dense convolutions instead of dilated convolutions (ablation experiment)
         """
-        super().__init__(num_joints_in, in_features, num_joints_out, filter_widths, causal, dropout, channels)
+        super().__init__(num_joints_in, in_features, num_joints_out, filter_widths, causal, dropout, channels, args=args)
         self.expand_conv = FlexGroupLayer(self.conv_inc, channels, self.conv_seq, kernel_size=filter_widths[0],
-                                          feature_split=args.split, recombine=args.recombine,
-                                          fix_seq=self.conv_seq, mean_func=args.mean_func,
-                                          ups_mean=args.ups_mean, bias=False)
+                                          feature_split=self.args.split, recombine=self.args.recombine,
+                                          fix_seq=self.conv_seq, mean_func=self.args.mean_func,
+                                          ups_mean=self.args.ups_mean, bias=False, args=self.args)
 
         in_out_seq = self._get_all_seq(self.conv_inc, channels, self.conv_seq, filter_widths)
 
@@ -167,24 +166,24 @@ class SRNetModel(SRNetModelBase):
             self.pad.append((filter_widths[i] - 1) * next_dilation // 2)
             self.causal_shift.append((filter_widths[i] // 2 * next_dilation) if causal else 0)
             layers_conv.append(FlexGroupLayer(in_out_seq[2*i-2][0], channels, in_out_seq[2*i-2][1], kernel_size=filter_widths[0], dilation=next_dilation,
-                                              feature_split=args.split, recombine=args.recombine,
-                                              fix_seq=self.conv_seq, mean_func=args.mean_func,
-                                              ups_mean=args.ups_mean, bias=False))
+                                              feature_split=self.args.split, recombine=self.args.recombine,
+                                              fix_seq=self.conv_seq, mean_func=self.args.mean_func,
+                                              ups_mean=self.args.ups_mean, bias=False, args=self.args))
 
             layers_bn.append(nn.BatchNorm1d(channels, momentum=0.1))
 
             layers_conv.append(FlexGroupLayer(in_out_seq[2*i-1][0], channels, in_out_seq[2*i-1][1], kernel_size=1, dilation=1,
-                                              feature_split=args.split, recombine=args.recombine,
-                                              fix_seq=self.conv_seq, mean_func=args.mean_func,
-                                              ups_mean=args.ups_mean, bias=False))
+                                              feature_split=self.args.split, recombine=self.args.recombine,
+                                              fix_seq=self.conv_seq, mean_func=self.args.mean_func,
+                                              ups_mean=self.args.ups_mean, bias=False, args=self.args))
 
             layers_bn.append(nn.BatchNorm1d(channels, momentum=0.1))
             next_dilation *= filter_widths[i]
 
         self.final_layer = FlexGroupLayer(in_out_seq[-1][0], self.final_outc, in_out_seq[2*i][1], kernel_size=1, dilation=1,
-                                          feature_split=args.split, recombine=args.recombine,
-                                          fix_seq=self.conv_seq, mean_func=args.mean_func,
-                                          ups_mean=args.ups_mean, bias=True)
+                                          feature_split=self.args.split, recombine=self.args.recombine,
+                                          fix_seq=self.conv_seq, mean_func=self.args.mean_func,
+                                          ups_mean=self.args.ups_mean, bias=True, args=self.args)
 
         self.layers_conv = nn.ModuleList(layers_conv)
         self.layers_bn = nn.ModuleList(layers_bn)
@@ -208,7 +207,7 @@ class Same_Model(SRNetModelBase):
     """
 
     def __init__(self, num_joints_in, in_features, num_joints_out,
-                 filter_widths, causal=False, dropout=0.25, channels=1024, dense=False):
+                 filter_widths, causal=False, dropout=0.25, channels=1024, dense=False, args=None):
         """
         Initialize this model.
 
@@ -222,11 +221,11 @@ class Same_Model(SRNetModelBase):
         channels -- number of convolution channels
         dense -- use regular dense convolutions instead of dilated convolutions (ablation experiment)
         """
-        super().__init__(num_joints_in, in_features, num_joints_out, filter_widths, causal, dropout, channels)
+        super().__init__(num_joints_in, in_features, num_joints_out, filter_widths, causal, dropout, channels, args=args)
         self.expand_conv = FlexGroupLayer(self.conv_inc, channels, self.conv_seq, kernel_size=filter_widths[0],
-                                          feature_split=args.split, recombine=args.recombine,
-                                          fix_seq=self.conv_seq, mean_func=args.mean_func,
-                                          ups_mean=args.ups_mean, bias=False)
+                                          feature_split=self.args.split, recombine=self.args.recombine,
+                                          fix_seq=self.conv_seq, mean_func=self.args.mean_func,
+                                          ups_mean=self.args.ups_mean, bias=False, args=self.args)
 
         in_out_seq = self._get_all_seq(self.conv_inc, channels, self.conv_seq, filter_widths)
 
@@ -240,25 +239,25 @@ class Same_Model(SRNetModelBase):
             self.pad.append((filter_widths[i] - 1) * next_dilation // 2)
             self.causal_shift.append((filter_widths[i] // 2 * next_dilation) if causal else 0)
             layers_conv.append(FlexGroupLayer(in_out_seq[2*i-2][0], channels, in_out_seq[2*i-2][1], kernel_size=filter_widths[0], dilation=next_dilation,
-                                              feature_split=args.split, recombine=args.recombine,
-                                              fix_seq=self.conv_seq, mean_func=args.mean_func,
-                                              ups_mean=args.ups_mean, bias=False))
+                                              feature_split=self.args.split, recombine=self.args.recombine,
+                                              fix_seq=self.conv_seq, mean_func=self.args.mean_func,
+                                              ups_mean=self.args.ups_mean, bias=False, args=self.args))
 
             layers_bn.append(nn.BatchNorm1d(channels, momentum=0.1))
 
             layers_conv.append(FlexGroupLayer(in_out_seq[2*i-1][0], channels, in_out_seq[2*i-1][1], kernel_size=1, dilation=1,
-                                              feature_split=args.split, recombine=args.recombine,
+                                              feature_split=self.args.split, recombine=args.recombine,
                                               fix_seq=self.conv_seq, mean_func=args.mean_func,
-                                              ups_mean=args.ups_mean, bias=False))
+                                              ups_mean=self.args.ups_mean, bias=False, args=self.args))
             #self.ref_pad.append(nn.ReplicationPad1d(next_dilation))
             self.ref_pad.append(nn.ReflectionPad1d(next_dilation))
             layers_bn.append(nn.BatchNorm1d(channels, momentum=0.1))
             next_dilation *= filter_widths[i]
 
         self.final_layer = FlexGroupLayer(in_out_seq[-1][0], self.final_outc, in_out_seq[2*i][1], kernel_size=1, dilation=1,
-                                          feature_split=args.split, recombine=args.recombine,
-                                          fix_seq=self.conv_seq, mean_func=args.mean_func,
-                                          ups_mean=args.ups_mean, bias=True)
+                                          feature_split=self.args.split, recombine=self.args.recombine,
+                                          fix_seq=self.conv_seq, mean_func=self.args.mean_func,
+                                          ups_mean=self.args.ups_mean, bias=True, args=self.args)
 
 
         self.reflec = nn.ReflectionPad1d(1)
@@ -292,7 +291,7 @@ class SRNetOptimized1f(SRNetModelBase):
     """
 
     def __init__(self, num_joints_in, in_features, num_joints_out,
-                 filter_widths, causal=False, dropout=0.25, channels=1024):
+                 filter_widths, causal=False, dropout=0.25, channels=1024, args=None):
         """
         Initialize this model.
 
@@ -305,11 +304,11 @@ class SRNetOptimized1f(SRNetModelBase):
         dropout -- dropout probability
         channels -- number of convolution channels
         """
-        super().__init__(num_joints_in, in_features, num_joints_out, filter_widths, causal, dropout, channels)
+        super().__init__(num_joints_in, in_features, num_joints_out, filter_widths, causal, dropout, channels, args=args)
 
         self.expand_conv = FlexGroupLayer(self.conv_inc, channels, self.conv_seq, kernel_size=filter_widths[0], stride=filter_widths[0],
                                           feature_split=args.split, recombine=args.recombine,
-                                          fix_seq=self.conv_seq, mean_func = args.mean_func, ups_mean=args.ups_mean, bias=False)
+                                          fix_seq=self.conv_seq, mean_func = args.mean_func, ups_mean=args.ups_mean, bias=False, args=self.args)
         in_out_seq = self._get_all_seq(self.conv_inc, channels, self.conv_seq, filter_widths)
         layers_conv = []
         layers_bn = []
@@ -320,20 +319,20 @@ class SRNetOptimized1f(SRNetModelBase):
             self.pad.append((filter_widths[i] - 1) * next_dilation // 2)
             self.causal_shift.append((filter_widths[i] // 2) if causal else 0)
             layers_conv.append(FlexGroupLayer(in_out_seq[2*i-2][0], channels, in_out_seq[2*i-2][1], kernel_size=filter_widths[0], stride=filter_widths[0],
-                                              feature_split=args.split, recombine=args.recombine,
-                                              fix_seq=self.conv_seq, mean_func=args.mean_func,
-                                              ups_mean=args.ups_mean, bias=False))
+                                              feature_split=self.args.split, recombine=self.args.recombine,
+                                              fix_seq=self.conv_seq, mean_func=self.args.mean_func,
+                                              ups_mean=self.args.ups_mean, bias=False, args=self.args))
             layers_bn.append(nn.BatchNorm1d(channels, momentum=0.1))
             layers_conv.append(FlexGroupLayer(in_out_seq[2*i-1][0], channels, in_out_seq[2*i-1][1], kernel_size=1, dilation=1,
-                                              feature_split=args.split, recombine=args.recombine,
-                                              fix_seq=self.conv_seq, mean_func=args.mean_func,
-                                              ups_mean=args.ups_mean, bias=False))
+                                              feature_split=self.args.split, recombine=self.args.recombine,
+                                              fix_seq=self.conv_seq, mean_func=self.args.mean_func,
+                                              ups_mean=self.args.ups_mean, bias=False, args=self.args))
             layers_bn.append(nn.BatchNorm1d(channels, momentum=0.1))
             next_dilation *= filter_widths[i]
         self.final_layer = FlexGroupLayer(in_out_seq[-1][0], self.final_outc, in_out_seq[2*i][1], kernel_size=1, dilation=1,
-                                          feature_split=args.split, recombine=args.recombine,
-                                          fix_seq=self.conv_seq, mean_func=args.mean_func,
-                                          ups_mean=args.ups_mean, bias=True)
+                                          feature_split=self.args.split, recombine=self.args.recombine,
+                                          fix_seq=self.conv_seq, mean_func=self.args.mean_func,
+                                          ups_mean=self.args.ups_mean, bias=True, args=self.args)
         self.layers_conv = nn.ModuleList(layers_conv)
         self.layers_bn = nn.ModuleList(layers_bn)
 

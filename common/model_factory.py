@@ -1,9 +1,8 @@
-from common.model  import *
 from common.model_conf_scr import *
-
 def get_model(args, num_joints_in, num_joints_out, in_features):
     filter_widths = [int(x) for x in args.architecture.split(',')]
     if args.model == "VideoPose3D":
+        from common.model import TemporalModel, TemporalModelOptimized1f
         # Prepare model
         if not args.disable_optimizations and not args.dense and args.stride == 1:
             # Use optimized model for single-frame predictions
@@ -38,12 +37,12 @@ def get_model(args, num_joints_in, num_joints_out, in_features):
     elif args.model == 'SRNet':
         from common.model_srnet import SRNetModel, SRNetOptimized1f
 
-        model_pos_train = TemporalModelOptimized1f(num_joints_in, in_features, num_joints_out,
+        model_pos_train = SRNetOptimized1f(num_joints_in, in_features, num_joints_out,
                                                 filter_widths=filter_widths, causal=args.causal, dropout=args.dropout,
-                                                channels=args.channels)
+                                                channels=args.channels,args=args)
 
-        model_pos = TemporalModel(num_joints_in, in_features, num_joints_out,
-                                    filter_widths = filter_widths, causal = args.causal, dropout = args.dropout, channels = args.channels, dense = args.dense)
+        model_pos = SRNetModel(num_joints_in, in_features, num_joints_out,
+                                    filter_widths = filter_widths, causal = args.causal, dropout = args.dropout, channels = args.channels, dense = args.dense, args=args)
         return model_pos_train, model_pos
         
     elif "PoseFormer" in args.model:
@@ -55,17 +54,16 @@ def get_model(args, num_joints_in, num_joints_out, in_features):
         model_pos = PoseTransformer(num_frame=receptive_field, num_joints=num_joints_in, in_chans=2, embed_dim_ratio=32, depth=4,
         num_heads=8, mlp_ratio=2., qkv_bias=True, qk_scale=None,drop_path_rate=0)
         return model_pos_train, model_pos
-
-    elif args.model == "ConfVideoPose3DV1":
-        ModelClass  = ConfTemporalModelV1
-    elif args.model == "ConfVideoPose3DV2":
-        ModelClass  = ConfTemporalModelV2
-    elif args.model == "ConfVideoPose3DV3":
-        ModelClass  = ConfTemporalModelV3
-    elif args.model == "ConfVideoPose3DV31":
-        ModelClass  = ConfTemporalModelV31
-    elif args.model == "ConfVideoPose3DV32":
-        ModelClass  = ConfTemporalModelV32
+    # elif args.model == "ConfVideoPose3DV1":
+    #     ModelClass  = ConfTemporalModelV1
+    # elif args.model == "ConfVideoPose3DV2":
+    #     ModelClass  = ConfTemporalModelV2
+    # elif args.model == "ConfVideoPose3DV3":
+    #     ModelClass  = ConfTemporalModelV3
+    # elif args.model == "ConfVideoPose3DV31":
+    #     ModelClass  = ConfTemporalModelV31
+    # elif args.model == "ConfVideoPose3DV32":
+    #     ModelClass  = ConfTemporalModelV32
     elif args.model == "ConfVideoPose3DV33":
         ModelClass  = ConfTemporalModelV33
     elif args.model == "ConfVideoPose3DV34":

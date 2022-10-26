@@ -25,7 +25,7 @@ from common.data   import *
 from common.render import *
 from common.model  import *
 from common.model_factory import get_model
-from common.generators import ChunkedGenerator, UnchunkedGenerator
+from common.generators import ChunkedGenerator, UnchunkedGenerator, EvaluateGenerator
 from time import time
 from common.utils import deterministic_random, load_cfg_from_file, set_momentum
 from tqdm import tqdm
@@ -113,10 +113,15 @@ if args.resume or args.evaluate:
     model_pos.load_state_dict(checkpoint['model_pos'])
     model_traj = None
 
-# Generate test data  
-test_generator = UnchunkedGenerator(cameras_valid, poses_valid, poses_valid_2d,
-                                    pad=pad, causal_shift=causal_shift, augment=False,
-                                    kps_left=dtf.kps_left, kps_right=dtf.kps_right, joints_left=dtf.joints_left, joints_right=dtf.joints_right)
+# Generate test data
+if args.test_fixed_size_input:
+    test_generator = ChunkedGenerator(args.batch_size // args.stride, cameras_valid, poses_valid, poses_valid_2d, args.stride,
+                                  pad=pad, causal_shift=causal_shift, augment=args.test_time_augmentation, shuffle=False,
+                                  kps_left=dtf.kps_left, kps_right=dtf.kps_right, joints_left=dtf.joints_left, joints_right=dtf.joints_right)
+else:
+    test_generator = UnchunkedGenerator(cameras_valid, poses_valid, poses_valid_2d,
+                                        pad=pad, causal_shift=causal_shift, augment=False,
+                                        kps_left=dtf.kps_left, kps_right=dtf.kps_right, joints_left=dtf.joints_left, joints_right=dtf.joints_right)
 print('INFO: Testing on {} frames'.format(test_generator.num_frames()))
 
 ################### TRAINING ###################
@@ -198,6 +203,8 @@ if not args.evaluate:
             
             if   args.loss == 'mpjpe':
                 loss_3d_pos = mpjpe(predicted_3d_pos, inputs_3d)
+            elif args.loss == 'l1':
+                loss_3d_pos = L1_loss(predicted_3d_pos, inputs_3d)
             elif args.loss == "conf_mpjpe":
                 loss_3d_pos = conf_mpjpe(predicted_3d_pos, inputs_3d, inputs_2d[...,-1])
             epoch_loss_3d_train += inputs_3d.shape[0]*inputs_3d.shape[1] * loss_3d_pos.item()
@@ -369,9 +376,9 @@ def evaluate(test_generator, action=None, return_predictions=False, use_trajecto
         for _, batch, batch_2d in test_generator.next_epoch():
             inputs_2d = torch.from_numpy(batch_2d.astype('float32'))
             inputs_3d = torch.from_numpy(batch.astype('float32'))
-            
+            # import ipdb; ipdb.set_trace()
             if args.smooth_conf_score == True or "PoseFormer" in args.model:
-                inputs_2d, inputs_3d = eval_data_prepare(inputs_2d, inputs_3d)
+                inputs_2d, inputs_3d = eval_data_prepare(inputs_2d, inputs_3d, receptive_field=receptive_field)
                 # inputs_2d, inputs_3d = eval_data_prepare(inputs_2d[0, None])
                 
             if torch.cuda.is_available():
@@ -380,7 +387,7 @@ def evaluate(test_generator, action=None, return_predictions=False, use_trajecto
             
             # Smooth conf. score (if enabled)
             # inputs_2d = inp_distr.smooth_conf_scr(inputs_2d)
-
+            
             # Positional model
             if not use_trajectory_model:
                 predicted_3d_pos = model_pos(inputs_2d)
@@ -538,9 +545,17 @@ else:
 
             poses_act, poses_2d_act = dtf.fetch_test_actions(actions[action_key])
             poses_2d_act = [inp_distr.get_test_inputs(i) for i in poses_2d_act]
-            gen = UnchunkedGenerator(None, poses_act, poses_2d_act,
+            if args.test_fixed_size_input:
+                gen = EvaluateGenerator(1024, None, poses_act, poses_2d_act, args.stride,
                                      pad=pad, causal_shift=causal_shift, augment=args.test_time_augmentation,
-                                     kps_left=dtf.kps_left, kps_right=dtf.kps_right, joints_left=dtf.joints_left, joints_right=dtf.joints_right)
+                                     shuffle=False,
+                                     kps_left=dtf.kps_left, kps_right=dtf.kps_right, joints_left=dtf.joints_left,
+                                     joints_right=dtf.joints_right)
+            else:
+                gen = UnchunkedGenerator(None, poses_act, poses_2d_act,
+                                        pad=pad, causal_shift=causal_shift, augment=args.test_time_augmentation,
+                                        kps_left=dtf.kps_left, kps_right=dtf.kps_right, joints_left=dtf.joints_left, joints_right=dtf.joints_right)
+
             e1, e2, e3, ev = evaluate(gen, action_key)
             errors_p1.append(e1)
             errors_p2.append(e2)

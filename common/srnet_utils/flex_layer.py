@@ -9,8 +9,9 @@ from common.srnet_utils.global_module import With_all_joints, With_other_joints
 
 class FlexGroupLayer(nn.Module):
     def __init__(self, inc, outc, out_seq, kernel_size=3, padding=0, dilation=1, stride=1,
-                 feature_split='others', recombine='multiply', repeat_concat=False, fix_seq=None, mean_func=False, ups_mean=False, bias=None):
+                 feature_split='others', recombine='multiply', repeat_concat=False, fix_seq=None, mean_func=False, ups_mean=False, bias=None, args=None):
         super(FlexGroupLayer, self).__init__()
+        self.args = args
         self.kernel_size = kernel_size
         self.padding = padding
         self.stride = stride
@@ -72,11 +73,11 @@ class FlexGroupLayer(nn.Module):
         # Get information from all joints or other joints
         if self.feature_split == 'all':
             self.get_all_info = With_all_joints(inc, outc, out_seq, kernel_size, padding, dilation, stride,
-                                                modulation=args.modulation, group_modulation=args.group_modulation,split_modulation=args.split_modulation,
-                                                channelwise=args.channelwise, recombine=self.recombine, repeat_concat=args.repeat_concat, mean_dim=cat_num, global_info=feature_split, bias=None)
+                                                modulation=self.args.modulation, group_modulation=self.args.group_modulation,split_modulation=self.args.split_modulation,
+                                                channelwise=self.args.channelwise, recombine=self.recombine, repeat_concat=self.args.repeat_concat, mean_dim=cat_num, global_info=feature_split, bias=None)
         elif self.feature_split == 'others':
             self.get_part_info = With_other_joints(inc, outc, out_seq, kernel_size, padding, dilation, stride,
-                                                   split_modulation=args.split_modulation, recombine=self.recombine, repeat_concat=args.repeat_concat,
+                                                   split_modulation=self.args.split_modulation, recombine=self.recombine, repeat_concat=self.args.repeat_concat,
                                                    in_c=part_in, mean_func=mean_func, mean_dim=cat_num, ups_mean=ups_mean)
 
     @staticmethod

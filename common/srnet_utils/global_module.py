@@ -63,7 +63,7 @@ class With_all_joints(Generate_Info):
             print('Use overall global-joint modulation for the all groups')
             self.m_conv = nn.Conv1d(self.in_channel, out_channels=self.kernel_size, kernel_size=self.kernel_size, dilation=self.dilation, stride=self.stride)
             nn.init.constant_(self.m_conv.weight, 0)
-            self.m_conv.register_backward_hook(self._set_lr)
+            self.m_conv.register_full_backward_hook(self._set_lr)
 
         if self.group_modulation:
             print('Use [group-wise] modulation for each group')
@@ -72,7 +72,7 @@ class With_all_joints(Generate_Info):
                 in_ch = sum(map(lambda x: self.in_channel_group[x], i))
                 group_mo.append(nn.Conv1d(in_ch, self.kernel_size, kernel_size=self.kernel_size, stride=self.stride, dilation=self.dilation))
                 nn.init.constant_(group_mo[index].weight, 0)
-                group_mo[index].register_backward_hook(self._set_lr)
+                group_mo[index].register_full_backward_hook(self._set_lr)
             self.group_mo = nn.ModuleList(group_mo)
 
         if self.split_modulation:
@@ -89,7 +89,7 @@ class With_all_joints(Generate_Info):
                 else:
                     m_conv.append(nn.Conv1d(self.in_channel, out_channels=self.kernel_size, kernel_size=self.kernel_size, dilation=self.dilation, stride=self.stride))
                 nn.init.constant_(m_conv[i].weight, 0)
-                m_conv[i].register_backward_hook(self._set_lr)
+                m_conv[i].register_full_backward_hook(self._set_lr)
             self.m_conv = nn.ModuleList(m_conv)
 
         in_ch_sum = 0
@@ -99,7 +99,7 @@ class With_all_joints(Generate_Info):
             print('Use overall global-joint channelwise modulation for the all groups')
             self.m_conv = nn.Conv1d(self.in_channel, out_channels=in_ch_sum*self.kernel_size, kernel_size=self.kernel_size, dilation=self.dilation, stride=self.stride)
             nn.init.constant_(self.m_conv.weight, 0)
-            self.m_conv.register_backward_hook(self._set_lr)
+            self.m_conv.register_full_backward_hook(self._set_lr)
 
     def _forward(self, x):
         x_ori, x_full = x[0], x[1]
@@ -222,7 +222,7 @@ class With_other_joints(Generate_Info):
                 else:
                     m_conv.append(nn.Conv1d(self.in_channel[i], out_channels=self.kernel_size, kernel_size=self.kernel_size, dilation=self.dilation, stride=self.stride))
                 nn.init.constant_(m_conv[i].weight, 0)
-                m_conv[i].register_backward_hook(self._set_lr)
+                m_conv[i].register_full_backward_hook(self._set_lr)
             self.m_conv = nn.ModuleList(m_conv)
         if self.mean_func:
             m_conv = []
@@ -233,7 +233,7 @@ class With_other_joints(Generate_Info):
                         print('Use [upsampling mean value] for concat')
                         m_conv.append(nn.Conv1d(1, out_channels=self.cat_num[i]*self.kernel_size, kernel_size=self.kernel_size, dilation=self.dilation, stride=self.stride))
                         nn.init.constant_(m_conv[i].weight, 0)
-                        m_conv[i].register_backward_hook(self._set_lr)
+                        m_conv[i].register_full_backward_hook(self._set_lr)
             self.m_conv = nn.ModuleList(m_conv)
 
     def _part_forward(self, x):

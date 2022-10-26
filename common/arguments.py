@@ -33,8 +33,8 @@ def parse_args():
     parser.add_argument('--seed', type=int, default=1606, help=" set random seed")
     parser.add_argument('--gpu', type=str, default="0", help="set gpu id")
     parser.add_argument('-cfg', '--cfg-file', type=str, default=None, help="path to config file")
-    parser.add_argument('--parallel', action='store_true', help='training on multi gpu')
-    
+    parser.add_argument('--parallel', action='store_true', help='training on multi gpus')
+    parser.add_argument('--test-fixed-size-input', action='store_true', help='fixing input-size using ChunkedGenerator')
     # Model arguments
     parser.add_argument('-m', '--model', default="VideoPose3D", help="model to be used")
     parser.add_argument('-l', '--loss', default='mpjpe', help="loss function to be used")
@@ -52,6 +52,34 @@ def parse_args():
     parser.add_argument('--causal', action='store_true', help='use causal convolutions for real-time processing')
     parser.add_argument('-ch', '--channels', default=1024, type=int, metavar='N', help='number of channels in convolution layers')
 
+
+    ### SRNet arguments
+    ### split features
+    parser.add_argument('-mo', '--modulation', default=False,
+                        help='Use modulation module for temporal mask self-attention multiply the whole channel [all joint inputs]')
+    parser.add_argument('--group-modulation', default=False,
+                        help='Use modulation module for multiply each group as local attention [group-wise joint inputs]')
+    parser.add_argument('--split-modulation', default=True,
+                        help='Use modulation module multiply each group as global attention [except local joint inputs]')
+    parser.add_argument('--channelwise', default=False,
+                        help='Use modulation module multiply each group with channel-wise attention [all joint inputs]')
+    ### recombine feature source
+
+    parser.add_argument('--split', choices=['all', 'others', 'none'], type=str,
+                        help='way of feature split', default='others')
+    ### recombine operators
+    parser.add_argument('--recombine', choices=['multiply', 'add', 'concat'], type=str,
+                        help='way of low-dimension global features and local feature recombination', default='multiply')
+    parser.add_argument('--mean-func', default=False, help='Use mean function [other joint inputs]')
+    parser.add_argument('--repeat-concat', default=False,
+                        help='Use [repeat number] concatenate for fusion group feature and other joint features, if True, --concat must be True')
+    parser.add_argument('--ups-mean', default=False, help='Use flexible mean function [other joint inputs]')
+    # Group number
+    parser.add_argument('--group', type=int, default=5, metavar='N', help='Guide the group strategies',choices=[1,2,3,5])
+    #### Data normalization
+    parser.add_argument('--norm', choices=['base', 'proj', 'weak_proj', 'lcn'], type=str, help='way of data normalization', default='base')
+
+    
     # Experimental
     parser.add_argument('--subset', default=1, type=float, metavar='FRACTION', help='reduce dataset size by fraction')
     parser.add_argument('--downsample', default=1, type=int, metavar='FACTOR', help='downsample frame rate by factor (semi-supervised)')
