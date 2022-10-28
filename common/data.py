@@ -1,3 +1,4 @@
+from dis import dis
 from common.camera import *
 from common.utils import deterministic_random
 
@@ -10,7 +11,7 @@ def load_data(args, all_subjects = None):
 
     elif args.dataset.startswith('humaneva'):
         from common.humaneva_dataset import HumanEvaDataset
-        dataset = HumanEvaDataset(dataset_path)
+        dataset = HumanEvaDataset(dataset_path, include_subjects=all_subjects)
     elif args.dataset.startswith('custom'):
         from common.custom_dataset import CustomDataset
         dataset = CustomDataset('data/data_2d_' + args.dataset + '_' + args.keypoints + '.npz')
@@ -45,7 +46,6 @@ class DataFetcher:
             subjects_test = [s for s in args.subjects_test.split(',') if s!= '' ]
         else:
             subjects_test = [args.viz_subject]
-
         # Loading 2D keypoints detections
         dataset = load_data(args, all_subjects = subjects_train + subjects_test)
         kpt_file  = 'data/data_2d_' + args.dataset + '_' + args.keypoints + '.npz'
@@ -65,19 +65,19 @@ class DataFetcher:
             self.eval_thr = float(args.eval_ignore_parts.split('_')[1])
 
         # Check detected keypoints:
-        for subject in dataset.subjects():
-            for action in dataset[subject].keys():
-                for cam_idx in range(len(keypoints[subject][action])):
-                    if keypoints[subject][action][cam_idx] is None:
-                        print("%s/%s.%s.mp4" %(subject, action, cam_map[cam_idx]))
-                    else:
-                        mocap_length = dataset[subject][action]['positions_3d'][cam_idx].shape[0]
-                        if keypoints[subject][action][cam_idx].shape[0] < mocap_length:
-                            print("%s/%s.%s.mp4" %(subject, action, cam_map[cam_idx]))
-                            print("[ERROR] Video %s-%s-%d has %d frames, expected at least %d" % (
-                                subject, action, cam_idx,
-                                keypoints[subject][action][cam_idx].shape[0], mocap_length
-                                ))
+        # for subject in dataset.subjects():
+        #     for action in dataset[subject].keys():
+        #         for cam_idx in range(len(keypoints[subject][action])):
+        #             if keypoints[subject][action][cam_idx] is None:
+        #                 print("%s/%s.%s.mp4" %(subject, action, cam_map[cam_idx]))
+        #             else:
+        #                 mocap_length = dataset[subject][action]['positions_3d'][cam_idx].shape[0]
+        #                 if keypoints[subject][action][cam_idx].shape[0] < mocap_length:
+        #                     print("%s/%s.%s.mp4" %(subject, action, cam_map[cam_idx]))
+        #                     print("[ERROR] Video %s-%s-%d has %d frames, expected at least %d" % (
+        #                         subject, action, cam_idx,
+        #                         keypoints[subject][action][cam_idx].shape[0], mocap_length
+        #                         ))
         for subject in dataset.subjects():
             assert subject in keypoints, 'Subject {} is missing from the 2D detections dataset'.format(subject)
             for action in dataset[subject].keys():
@@ -139,6 +139,20 @@ class DataFetcher:
         self.keypoints_metadata = keypoints_metadata
         self.all_actions = all_actions
         self.all_actions_by_subject = all_actions_by_subject
+    
+    def get_mask_mpjpe_at(self, dist):
+        if self.args.dataset == "h36m":
+            return dist < self.eval_thr
+        elif self.args.dataset == 'humaneva':
+            msk = np.ones((dist.shape[0], 15))
+            # hmeva_idx= np.arange(15)
+            # coco_idx = np.arange(15)
+            hmeva_idx= [2,3,4,5,6,7, 8, 9, 10,11,12,13]
+            coco_idx = [5,7,9,6,8,10,11,13,15,12,14,16]
+            msk[:, hmeva_idx] = dist[:, coco_idx] < self.eval_thr
+            return msk
+        else:
+            raise NotImplementedError
         
     def __fetch(self, keypoints, subjects, action_filter=None, subset=1, parse_3d_poses=True, fetch_test=False):
         stride   = self.downsample
@@ -175,7 +189,8 @@ class DataFetcher:
                     for i in range(len(poses_3d)): # Iterate across cameras
                         ps3d = poses_3d[i]
                         if fetch_test and 'file' in self.args.eval_ignore_parts:
-                            eval_msk_3d = self.eval_dist[subject][action][i] < self.eval_thr
+                            eval_msk_3d = self.get_mask_mpjpe_at(self.eval_dist[subject][action][i])
+                            # eval_msk_3d = self.eval_dist[subject][action][i] < self.eval_thr
                             ps3d = np.concatenate([ps3d, eval_msk_3d[...,None]],axis=-1)
                         out_poses_3d.append(ps3d)
         
@@ -222,7 +237,8 @@ class DataFetcher:
             for i in range(len(poses_3d)): # Iterate across cameras
                 ps3d = poses_3d[i]
                 if 'file' in self.args.eval_ignore_parts:
-                    eval_msk_3d = self.eval_dist[subject][action][i] < self.eval_thr
+                    eval_msk_3d = self.get_mask_mpjpe_at(self.eval_dist[subject][action][i])
+                    # eval_msk_3d = self.eval_dist[subject][action][i] < self.eval_thr
                     ps3d = np.concatenate([ps3d, eval_msk_3d[...,None]],axis=-1)
                 out_poses_3d.append(ps3d)
                 

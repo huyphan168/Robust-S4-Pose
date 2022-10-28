@@ -1,9 +1,9 @@
 import torch
 import numpy as np
 class InputDistortion:
-    def __init__(self, args, layout="h36m") -> None:
+    def __init__(self, args) -> None:
         self.args   = args
-        self.layout = layout
+        self.layout = args.dataset
         self.loss_ignore_parts = args.loss_ignore_parts
         self.eval_ignore_parts = args.eval_ignore_parts
         
@@ -12,7 +12,9 @@ class InputDistortion:
             mask = np.ones(out_shape) # 1: keep, 0: distort 
         else:
             assert 'rand' not in self.loss_ignore_parts 
-            mask = np.ones((1,17,1))
+            mask = np.ones((1,
+                17 if self.layout == 'h36m' else 15,
+            1))
         if self.layout == "h36m":
             if   parts == "legs":
                 mask[:,1:7,:] = 0
@@ -28,12 +30,6 @@ class InputDistortion:
                 mask   = np.zeros(out_shape)
             elif parts == "None":
                 pass
-            elif 'randfix' in parts:
-                p = float(parts.split('_')[1])
-                mask[:,np.random.rand(out_shape[1]) < p,:] = 0
-            elif 'rand' in parts:
-                p = float(parts.split('_')[1])
-                mask[np.random.rand(*out_shape[:-1]) <p, :] = 0
             else:
                 raise NotImplementedError
         elif self.layout == "coco":
@@ -41,6 +37,14 @@ class InputDistortion:
                 mask[11:] = 0
             else:
                 raise NotImplementedError
+        
+        if 'randfix' in parts:
+            p = float(parts.split('_')[1])
+            mask[:,np.random.rand(out_shape[1]) < p,:] = 0
+        elif 'rand' in parts:
+            p = float(parts.split('_')[1])
+            mask[np.random.rand(*out_shape[:-1]) <p, :] = 0
+        
         if out_shape != None:
             return mask
         else:
@@ -127,7 +131,6 @@ class InputDistortion:
         return arr
 
     def get_train_inputs(self, inputs):
-        
         tmp = self.__apply_input_distortion(inputs, 
             body_parts= self.args.train_distortion_parts,
             type      = self.args.train_distortion_type,

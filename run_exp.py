@@ -533,7 +533,7 @@ else:
         errors_vel = []
         actions_name = []
         for action_key in actions.keys():
-            actions_name.append(action_key)
+            
             if action_filter is not None:
                 found = False
                 for a in action_filter:
@@ -542,7 +542,7 @@ else:
                         break
                 if not found:
                     continue
-
+            actions_name.append(action_key)
             poses_act, poses_2d_act = dtf.fetch_test_actions(actions[action_key])
             poses_2d_act = [inp_distr.get_test_inputs(i) for i in poses_2d_act]
             if args.test_fixed_size_input:
@@ -577,7 +577,6 @@ else:
         errors_p2.append(m_p2)
         errors_p3.append(m_p3)
         errors_vel.append(m_v)
-
         df = pd.DataFrame({
             'action' : actions_name, 
             'mpjpe'  : errors_p1,

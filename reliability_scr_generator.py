@@ -15,15 +15,19 @@ from scipy.optimize import curve_fit
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-s', '--set', type=str, default='erase', help='path to log file')
+    parser.add_argument('-s', '--set', type=str, default='erase', help='select distortion types')
     parser.add_argument('-o', '--out-folder', type=str, default="plots", help='path to output folder' )
+    parser.add_argument('-det', '--detector', type=str,default='hrnet', help="select keypoints detector")
+    parser.add_argument('-data', '--dataset',  type=str,default='h36m',  help="select dataset")
     parser.add_argument('--plot-cdf', action='store_true', default=False, help='plot cdf?' )
     args   = parser.parse_args()
     return args
 
-detector = 'litehrnet'
+args = parse_args()
+assert args.detector in ['litehrnet', 'hrnet']
+assert args.dataset  in ['h36m', 'humaneva_humaneva']
 def load_kpt(set):
-    kpt_file = 'data/data_2d_h36m_%s_' % detector + set + '.npz'
+    kpt_file = 'data/data_2d_%s_%s_' % (args.dataset, args.detector) + set + '.npz'
     kpts = np.load(kpt_file, allow_pickle=True)
     kpts = kpts['positions_2d'].item()
     return kpts
@@ -38,18 +42,24 @@ def process_data(args):
     dist_kpts   = load_kpt(args.set)
     print(args.set)
     subjects    = list(dist_kpts.keys())
-    cameras     = [i for i in range(4)]
+    cameras     = [i for i in range(4 if args.dataset=='h36m' else 3)]
     diff = {}
     diff_arr = []
     for subj in subjects:
         if subj not in diff:
             diff[subj] = {}
+        if subj not in clean_kpts:
+            continue
         for act in clean_kpts[subj].keys():
+            
             if act not in diff[subj]:
                 diff[subj][act] = []
             for cam in cameras:
                 clean = normalize(clean_kpts[subj][act][cam], cam)
-                dist  = normalize(dist_kpts[subj][act][cam] , cam) 
+                try:
+                    dist  = normalize(dist_kpts[subj][act][cam] , cam) 
+                except:
+                    print("Not found:", subj, act, cam)
                 length= min(len(clean), len(dist))
                 # Crop clean/dist sequences
                 clean = clean[:length,...,:2]
@@ -72,7 +82,7 @@ def process_data(args):
             print("Ratio = %f, thresh = %.3f" % (r,thresh))
         plt.savefig("plots/cdf_%s.png" % args.set, bbox_inches='tight')
     else:
-        np.savez_compressed("data/eval_dist_h36m_%s_%s.npz" % (detector, args.set), eval_dist = diff)
+        np.savez_compressed("data/eval_dist_%s_%s_%s.npz" % (args.dataset, args.detector, args.set), eval_dist = diff)
     
     
 def main(args):
@@ -80,5 +90,4 @@ def main(args):
     
     
 if __name__ == '__main__':
-    args = parse_args()
     main(args)

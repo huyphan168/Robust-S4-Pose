@@ -88,7 +88,7 @@ humaneva_cameras_extrinsic_params = {
 }
 
 class HumanEvaDataset(MocapDataset):
-    def __init__(self, path):
+    def __init__(self, path, include_subjects = None):
         super().__init__(fps=60, skeleton=humaneva_skeleton)
         
         self._cameras = copy.deepcopy(humaneva_cameras_extrinsic_params)
@@ -112,6 +112,9 @@ class HumanEvaDataset(MocapDataset):
         
         self._data = {}
         for subject, actions in data.items():
+            if include_subjects is not None:
+                if subject not in include_subjects:
+                    continue
             self._data[subject] = {}
             for action_name, positions in actions.items():
                 self._data[subject][action_name] = {

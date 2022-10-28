@@ -231,7 +231,8 @@ def plot_img_distortion(args, exps_list, out_file="mpjpe_img_distortion.png",
         plot_bounds = plot_bounds
         )
 
-def plot_mpjpe_rel_mpjpe(args, exps_list, out_file="rel-mpjpe-compare.png", metrics =['0.1'], plot_bounds=None):
+def plot_mpjpe_rel_mpjpe(args, exps_list, out_file="rel-mpjpe-compare.png", metrics =['0.1'], plot_bounds=None,
+    detector="hrnet"):
     exp_series = {}
     color = 'bisque'
     distortion_types  = [
@@ -251,8 +252,47 @@ def plot_mpjpe_rel_mpjpe(args, exps_list, out_file="rel-mpjpe-compare.png", metr
         list_plot_all = []
         for t, c in distortion_types:
             list_plot_all.append((
-                '%s_hrnet_%s_None_None' % (
-                    ckpt, t, 
+                '%s_%s_%s_None_None' % (
+                    ckpt, detector, t, 
+                ), t, c
+            )
+            )
+        exp_series[exp] = {'label': label, 'exps': list_plot_all}
+    x_ticks= [i[0] for i in distortion_types]
+    title  = "[%s] Performance on distored images input" % (model_name)
+    df = plot_exp_series(args,
+        exp_series,
+        x_ticks,
+        title=title,
+        out_file=out_file,
+        metrics = metrics,
+        plot_bounds=plot_bounds
+        )
+    return df
+
+def plot_mpjpe_humaneva(args, exps_list, out_file="rel-mpjpe-compare.png", metrics =['0.1'], plot_bounds=None,
+    detector="hrnet"):
+    exp_series = {}
+    color = 'bisque'
+    distortion_types  = [
+        ('clean', 'gray'),
+        # ('brightness',color),
+        ('gaussian_noise',color),
+        ('impulse_noise',color),
+        ('temporal' ,color),
+        ('erase' ,color),
+        # ('crop' ,color),
+        ('motion_blur' ,color),
+        # ('fog' ,color),
+    ]
+    for i, (exp, ckpt, label) in enumerate(exps_list):
+        model_name = "VideoPose3D"  
+        list_plot     = []
+        list_plot_all = []
+        for t, c in distortion_types:
+            list_plot_all.append((
+                '%s_%s_%s_None_None' % (
+                    ckpt, detector, t, 
                 ), t, c
             )
             )
@@ -336,14 +376,8 @@ def plot_dist_kpts(args):
         
         ("VideoPose3D-cpn_ft_h36m_dbb-a3,3,3-b1024-dj_gauss_0.1-dp_rand_0.3-df0.3-lss_exc_None-conf_None",
         "epoch_80",
-        "VP3D on dist-H36M-kpts (Gauss $\sigma=0.1$ - 30% joints - 30% frames)"),
-
-        # ("VideoPose3D-cpn_ft_h36m_dbb-a3,3,3-b1024-dj_gauss_0.5-dp_rand_0.5-df1.0-lss_exc_None-conf_None",
-        # "epoch_80",
-        # "VP3D on dist-H36M-kpts (Gauss $\sigma=0.3$ - 50% joints- 50% frames)"),       
+        "VP3D on dist-H36M-kpts (Gauss $\sigma=0.1$ - 30% joints - 30% frames)"),      
         ]
-
-    # 
     plot_exp_gauss(args, exps_list,
         out_file = "mpjpe_dist_kpts_noise_level.png", plot_bounds=[0]
     )
@@ -389,37 +423,37 @@ def plot_dist_imgs(args):
     plot_img_distortion(args, exps_list)
 
 def plot_mpjpe_at_t_img_distortion(args):
-    exps_list = [
-        ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
-        "epoch_80",
-        "VP3D on CLEAN hrnet det"),
+    # exps_list = [
+    #     ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
+    #     "epoch_80",
+    #     "VP3D on CLEAN hrnet det"),
         
-        ("VideoPose3D-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
-        "epoch_80",
-        "VP3D on MIX-AUG hrnet det"),
-    ]
-    plot_mpjpe_rel_mpjpe(args, exps_list, out_file="mpjpe_dist_img.png", metrics=[0.1], plot_bounds=[0,1])
+    #     ("VideoPose3D-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
+    #     "epoch_80",
+    #     "VP3D on MIX-AUG hrnet det"),
+    # ]
+    # plot_mpjpe_rel_mpjpe(args, exps_list, out_file="mpjpe_dist_img.png", metrics=[0.1], plot_bounds=[0,1])
 
     exps_list = [
         ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
         "epoch_80",
         "VP3D on H36M "),
         
-        ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.05-dp_rand_0.2-df0.2-lss_exc_None-conf_None",
-        "epoch_80",
-        "VP3D on H36M, $\sigma=0.05, p=20\%, k=20\%$"),
+        # ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.05-dp_rand_0.2-df0.2-lss_exc_None-conf_None",
+        # "epoch_80",
+        # "VP3D on H36M, $\sigma=0.05, p=20\%, k=20\%$"),
 
-        ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.1-dp_rand_0.3-df0.3-lss_exc_None-conf_None",
-        "epoch_80",
-        "VP3D on H36M, $\sigma=0.1, p=30\%, k=30\%$"),
+        # ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.1-dp_rand_0.3-df0.3-lss_exc_None-conf_None",
+        # "epoch_80",
+        # "VP3D on H36M, $\sigma=0.1, p=30\%, k=30\%$"),
 
         ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_0.5-df0.5-lss_exc_None-conf_None",
         "epoch_80",
         "VP3D on H36M, $\sigma=0.3, p=50\%, k=50\%$"),
 
-        ("VideoPose3D-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
-        "epoch_80",
-        "VP3D on dist-H36M-imgs"),
+        # ("VideoPose3D-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
+        # "epoch_80",
+        # "VP3D on dist-H36M-imgs"),
     ]
     plot_mpjpe_rel_mpjpe(args, exps_list, out_file="mpjpe_dist_img_gauss.png", metrics=[0.1] , plot_bounds=[0,1])
 
@@ -729,17 +763,49 @@ def plot_srnet(args):
     ]
     plot_mpjpe_rel_mpjpe(args, exps_list, out_file="mpjpe_srnet.png", metrics=[0.1], plot_bounds=[0])
 
+
+def plot_humaneva(args):
+    exps_list = [
+        ("VideoPose3D-humaneva_hrnet_clean-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
+        "epoch_80",
+        "SRNet (27 frames) on CLEAN hrnet det"),
+        # ("VideoPose3D-humaneva_hrnet_clean-a3,3,3-b1024-dj_gauss_0.1-dp_rand_0.5-df0.5-lss_exc_None-conf_None",
+        # "epoch_80",
+        # "SRNet (27 frames) on H36M, $\sigma=0.3, p=30\%, k=50\%$"), 
+        ("VideoPose3D-humaneva_hrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_0.1-df0.1-lss_exc_None-conf_None",
+        "epoch_80",
+        "SRNet (27 frames) on H36M, $\sigma=0.3, p=30\%, k=50\%$"), 
+        
+        # ("VideoPose3D-humaneva_hrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_0.1-df0.3-lss_exc_None-conf_None",
+        # "epoch_80",
+        # "SRNet (27 frames) on H36M, $\sigma=0.3, p=30\%, k=50\%$"), 
+
+        ("VideoPose3D-humaneva_hrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_0.05-df0.1-lss_exc_None-conf_None",
+        "epoch_80",
+        "SRNet (27 frames) on H36M, $\sigma=0.3, p=30\%, k=50\%$"),
+
+        ("VideoPose3D-humaneva_hrnet_clean-a3,3,3-b1024-dj_gauss_0.5-dp_rand_0.05-df0.1-lss_exc_None-conf_None",
+        "epoch_80",
+        "SRNet (27 frames) on H36M, $\sigma=0.3, p=30\%, k=50\%$")
+
+        # ("SRNet-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
+        # "epoch_80",
+        # "SRNet (27 frames) on MIX-AUG hrnet det"),
+    ]
+    plot_mpjpe_humaneva(args, exps_list, out_file="mpjpe_humaneva.png", metrics=['0.1'], plot_bounds=[0], detector="humaneva_hrnet")
+
 def main(args):
     # plot_dist_kpts(args)    
     # plot_dist_imgs(args)
-    plot_mpjpe_at_t_img_distortion(args)
+    # plot_mpjpe_at_t_img_distortion(args)
     # plot_conf_scr_learning(args)
     # plot_mpjpe_at_0_1_params_analysis(args)
     # plot_receptive_field(args)
-    plot_lite_hrnet(args)
-    plot_poseformer(args)
-    plot_attention3dhp(args)
-    plot_srnet(args)
+    # plot_lite_hrnet(args)
+    # plot_poseformer(args)
+    # plot_attention3dhp(args)
+    # plot_srnet(args)
+    plot_humaneva(args)
 if __name__ == "__main__":
     args = parse_args()
     main(args)
