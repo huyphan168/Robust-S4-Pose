@@ -3,7 +3,7 @@ python run_exp.py \
     -k humaneva_hrnet_$2 \
     -c checkpoint/$1 \
     -arc 3,3,3 \
-    --evaluate epoch_80.bin \
+    --evaluate epoch_1000.bin \
     --drop-conf-score \
     -str ''\
     -ste Validate/S1,Validate/S2,Validate/S3 \

@@ -4,7 +4,7 @@ python run_exp.py \
     -c checkpoint/$1 \
     -arc 3,3,3 \
     -m ConfVideoPose3DV34 \
-    --evaluate epoch_80.bin \
+    --evaluate epoch_1000.bin \
     -str ''\
     -ste Validate/S1,Validate/S2,Validate/S3 \
     -a Walk,Jog,Box \

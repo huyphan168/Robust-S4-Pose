@@ -22,6 +22,8 @@ def parse_args():
                         help='actions to train/test on, separated by comma, or * for all')
     parser.add_argument('-c', '--checkpoint', default='auto', type=str, metavar='PATH',
                         help='checkpoint directory')
+    parser.add_argument('-c2', '--checkpoint-2', default='auto', type=str, metavar='PATH',
+                        help='checkpoint directory')
     parser.add_argument('--checkpoint-frequency', default=40, type=int, metavar='N',
                         help='create a checkpoint every N epochs')
     parser.add_argument('-r', '--resume', default='', type=str, metavar='FILENAME',

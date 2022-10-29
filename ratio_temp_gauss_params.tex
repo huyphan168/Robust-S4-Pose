@@ -1,0 +1,167 @@
+% This file was created with tikzplotlib v0.10.1.
+\begin{tikzpicture}
+
+\definecolor{crimson2143940}{RGB}{214,39,40}
+\definecolor{darkgray176}{RGB}{176,176,176}
+\definecolor{darkorange25512714}{RGB}{255,127,14}
+\definecolor{forestgreen4416044}{RGB}{44,160,44}
+\definecolor{lightgray204}{RGB}{204,204,204}
+\definecolor{mediumpurple148103189}{RGB}{148,103,189}
+\definecolor{steelblue31119180}{RGB}{31,119,180}
+
+\begin{groupplot}[group style={group size=2 by 1}]
+\nextgroupplot[
+legend cell align={left},
+legend style={
+  fill opacity=0.8,
+  draw opacity=1,
+  text opacity=1,
+  at={(0.03,0.97)},
+  anchor=north west,
+  draw=lightgray204
+},
+tick align=outside,
+tick pos=left,
+x grid style={darkgray176},
+xlabel={Joints Distortion Ratio p (\%)},
+xmajorgrids,
+xmin=-0.2, xmax=4.2,
+xtick style={color=black},
+xtick={0,1,2,3,4},
+xticklabels={
+  \(\displaystyle 10\%\),
+  \(\displaystyle 30\%\),
+  \(\displaystyle 50\%\),
+  \(\displaystyle 80\%\),
+  \(\displaystyle 100\%\)
+},
+y grid style={darkgray176},
+ylabel={Average MPJPE\(\displaystyle _{\leq 0.1}\)},
+ymajorgrids,
+ymin=88.302, ymax=180.218,
+ytick style={color=black}
+]
+\addplot [semithick, steelblue31119180, mark=*, mark size=3, mark options={solid}]
+table {%
+0 94.96
+1 93.96
+2 94.28
+3 94.48
+4 94.46
+};
+\addlegendentry{k=10%}
+\addplot [semithick, darkorange25512714, mark=x, mark size=3, mark options={solid}]
+table {%
+0 93.42
+1 92.48
+2 93.1
+3 92.92
+4 93.12
+};
+\addlegendentry{k=30%}
+\addplot [semithick, forestgreen4416044, mark=square*, mark size=3, mark options={solid}]
+table {%
+0 93.73
+1 94.26
+2 92.72
+3 93.46
+4 93.96
+};
+\addlegendentry{k=50%}
+\addplot [semithick, crimson2143940, mark=diamond*, mark size=3, mark options={solid}]
+table {%
+0 94.78
+1 98.98
+2 104.94
+3 109.42
+4 105.73
+};
+\addlegendentry{k=80%}
+\addplot [semithick, mediumpurple148103189, mark=triangle*, mark size=3, mark options={solid,rotate=90}]
+table {%
+0 94.83
+1 103.91
+2 126.6
+3 159.11
+4 176.04
+};
+\addlegendentry{k=100%}
+
+\nextgroupplot[
+legend cell align={left},
+legend style={
+  fill opacity=0.8,
+  draw opacity=1,
+  text opacity=1,
+  at={(0.03,0.97)},
+  anchor=north west,
+  draw=lightgray204
+},
+tick align=outside,
+tick pos=left,
+x grid style={darkgray176},
+xlabel={Temporal Distortion Ratio k (\%)},
+xmajorgrids,
+xmin=-0.2, xmax=4.2,
+xtick style={color=black},
+xtick={0,1,2,3,4},
+xticklabels={
+  \(\displaystyle 10\%\),
+  \(\displaystyle 30\%\),
+  \(\displaystyle 50\%\),
+  \(\displaystyle 80\%\),
+  \(\displaystyle 100\%\)
+},
+y grid style={darkgray176},
+ymajorgrids,
+ymin=88.302, ymax=180.218,
+ytick style={color=black}
+]
+\addplot [semithick, steelblue31119180, mark=*, mark size=3, mark options={solid}]
+table {%
+0 94.96
+1 93.42
+2 93.73
+3 94.78
+4 94.83
+};
+\addlegendentry{p=10%}
+\addplot [semithick, darkorange25512714, mark=x, mark size=3, mark options={solid}]
+table {%
+0 93.96
+1 92.48
+2 94.26
+3 98.98
+4 103.91
+};
+\addlegendentry{p=30%}
+\addplot [semithick, forestgreen4416044, mark=square*, mark size=3, mark options={solid}]
+table {%
+0 94.28
+1 93.1
+2 92.72
+3 104.94
+4 126.6
+};
+\addlegendentry{p=50%}
+\addplot [semithick, crimson2143940, mark=diamond*, mark size=3, mark options={solid}]
+table {%
+0 94.48
+1 92.92
+2 93.46
+3 109.42
+4 159.11
+};
+\addlegendentry{p=80%}
+\addplot [semithick, mediumpurple148103189, mark=triangle*, mark size=3, mark options={solid,rotate=90}]
+table {%
+0 94.46
+1 93.12
+2 93.96
+3 105.73
+4 176.04
+};
+\addlegendentry{p=100%}
+\end{groupplot}
+
+\end{tikzpicture}

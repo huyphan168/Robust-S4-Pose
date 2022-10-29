@@ -1,3 +1,4 @@
+import os
 from common.model_conf_scr import *
 def get_model(args, num_joints_in, num_joints_out, in_features):
     filter_widths = [int(x) for x in args.architecture.split(',')]
@@ -96,3 +97,33 @@ def get_model(args, num_joints_in, num_joints_out, in_features):
                                     filter_widths=filter_widths, causal=args.causal, dropout=args.dropout, channels=args.channels,
                                     dense=args.dense)
     return model_pos_train, model_pos
+
+def initialize_model(args, num_joints_in, num_joints_out, in_features, chk_filename=None):
+    # Initialize train/test models
+    model_pos_train, model_pos = get_model(args, 
+        num_joints_in = num_joints_in, 
+        num_joints_out= num_joints_out,
+        in_features   = in_features)
+
+    model_params = 0
+    for parameter in model_pos.parameters():
+        model_params += parameter.numel()
+    print('INFO: Trainable parameter count:', model_params)
+
+    # Move models to CUDA device(s)
+    if torch.cuda.is_available():
+        if args.parallel:
+            model_pos       = nn.DataParallel(model_pos)
+            model_pos_train = nn.DataParallel(model_pos_train)
+        model_pos = model_pos.cuda()
+        model_pos_train = model_pos_train.cuda()
+    
+    checkpoint = None
+    # Load weights from pretrained models
+    if args.resume or args.evaluate:
+        print('Loading checkpoint', chk_filename)
+        checkpoint = torch.load(chk_filename, map_location=lambda storage, loc: storage)
+        print('This model was trained for {} epochs'.format(checkpoint['epoch']))
+        model_pos_train.load_state_dict(checkpoint['model_pos'], strict=False)
+        model_pos.load_state_dict(checkpoint['model_pos'])
+    return model_pos, model_pos_train, checkpoint 

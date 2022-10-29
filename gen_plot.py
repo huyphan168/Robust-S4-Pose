@@ -9,6 +9,7 @@ import os.path as osp
 import os
 import numpy as np
 import matplotlib.patches as mpatches
+import tikzplotlib
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -16,9 +17,10 @@ def parse_args():
     parser.add_argument('-o', '--out-folder', type=str, default="plots", help='path to output folder' )
     args   = parser.parse_args()
     return args
-    
 
-def plot_exp(ax, eval_folder, to_run, shift=0.0, name = None, hatch=None, mode='line', metrics='all', color = 'b', linestyle=None):
+markers = ["o", "x", "s", "D", ">"]
+
+def plot_exp(ax, eval_folder, to_run, shift=0.0, name = None, hatch=None, mode='line', metrics='all', color = 'b', marker='o', linestyle=None):
     
     distr_names= []
     colors = []
@@ -44,23 +46,27 @@ def plot_exp(ax, eval_folder, to_run, shift=0.0, name = None, hatch=None, mode='
                 colors.append(c)
             else:
                 print("File not found %s" % file_path)
-        if mode == 'line':
-            lstyle = metrics_styles[mi] if linestyle is None else linestyle
-            ax.plot(mpjpe_vals,marker='o', label=name if m=='all' else "[$MPJPE_{\leq%s}$] %s" % (m, name),
-                linestyle = lstyle, color=color
-            )
-        elif mode == 'bar':
-            for i in range(len(distr_names)):
-                ax.bar(i + shift, mpjpe_vals[i], width = 0.2, color = colors[i], hatch=hatch)
+        
+        if ax is not None:
+            if mode == 'line':
+                lstyle = metrics_styles[mi] if linestyle is None else linestyle
+                ax.plot(mpjpe_vals,marker=marker, label=name if m=='all' else "[$MPJPE_{\leq%s}$] %s" % (m, name),
+                    linestyle = lstyle, color=color
+                )
+            elif mode == 'bar':
+                for i in range(len(distr_names)):
+                    ax.bar(i + shift, mpjpe_vals[i], width = 0.2, color = colors[i], hatch=hatch)
     return mpjpe_vals, pmpjpe_vals
 
 def plot_exp_series(args, exp_series, x_ticks, xlabel="Distortion Type", ylabel="MPJPE (mm)", 
-        out_file="mpjpe_plot.png", title="Plot", mode = 'line', metrics = 'all', plot_bounds = None):
+        out_file="mpjpe_plot.png", title="Plot", mode = 'line', metrics = 'all', plot_bounds = None, df_only=False):
     patterns= ['//','+', 'o', '-', '\\', '.', '*', "\\", '//','+', 'o', '-', '\\', '.', '*', "\\"]
     colors     = plt.rcParams['axes.prop_cycle'].by_key()['color']
-    plt.figure(figsize=(14,8))
+    
     records    = [] 
     baseline_mpjpe = None
+    if df_only == False:
+        plt.figure(figsize=(10,6))
     for i, exp_id in enumerate(exp_series):
         folder = exp_series[exp_id]['folder'] if 'folder' in exp_series[exp_id] else exp_id
         color = colors[i % len(colors)]
@@ -74,7 +80,7 @@ def plot_exp_series(args, exp_series, x_ticks, xlabel="Distortion Type", ylabel=
                     lstyle = '-' 
                     color  = 'k'
         
-        mpjpe_vals, pmpjpe_vals = plot_exp(plt.gca(), 
+        mpjpe_vals, pmpjpe_vals = plot_exp(plt.gca() if df_only == False else None, 
             osp.join(args.eval_results, folder),
             exp_series[exp_id]['exps'],
             name=exp_series[exp_id]['label'],
@@ -83,7 +89,8 @@ def plot_exp_series(args, exp_series, x_ticks, xlabel="Distortion Type", ylabel=
             mode = mode,
             metrics = metrics,
             color=color,
-            linestyle=lstyle 
+            linestyle=lstyle,
+            marker=markers[i % len(markers)]
         )
         info_dict = {'name': exp_id}
         info_dict.update({k:v for k,v in zip(x_ticks, mpjpe_vals)})
@@ -97,18 +104,19 @@ def plot_exp_series(args, exp_series, x_ticks, xlabel="Distortion Type", ylabel=
         info_dict.update({k:v for k,v in zip(x_ticks, mpjpe_vals_diff)})
         info_dict['avg_mpjpe'] = round(np.array(mpjpe_vals_diff[1:]).mean(), 2) #skip the original (clean)
         records.append(info_dict)
-    
-    plt.xticks(np.arange(len(x_ticks)), x_ticks)
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel)
-    if mode == 'bar':
-        plt.legend(handles=[mpatches.Patch(hatch=patterns[i], edgecolor='black', facecolor='white',  zorder = 1, label=exp_id) for i, exp_id in enumerate(exp_series)], loc='best')
-    else:
-        plt.legend(loc='best')
-    plt.title(title)
-    plt.grid()
-    # Export plot
-    plt.savefig(osp.join(args.out_folder, out_file), bbox_inches="tight")
+    if df_only == False:
+        plt.xticks(np.arange(len(x_ticks)), x_ticks)
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        if mode == 'bar':
+            plt.legend(handles=[mpatches.Patch(hatch=patterns[i], edgecolor='black', facecolor='white',  zorder = 1, label=exp_id) for i, exp_id in enumerate(exp_series)], loc='best')
+        else:
+            plt.legend(loc='best')
+        plt.title(title)
+        plt.grid()
+        # Export plot
+        plt.savefig(osp.join(args.out_folder, out_file), bbox_inches="tight")
+        tikzplotlib.save(osp.join(args.out_folder, "%s.tex5" % out_file.split('.')[0]))
     # Export csv
     df = pd.DataFrame.from_records(records, index='name')
     df.to_csv(osp.join(args.out_folder, "%s.csv" % out_file.split('.')[0]))
@@ -232,7 +240,7 @@ def plot_img_distortion(args, exps_list, out_file="mpjpe_img_distortion.png",
         )
 
 def plot_mpjpe_rel_mpjpe(args, exps_list, out_file="rel-mpjpe-compare.png", metrics =['0.1'], plot_bounds=None,
-    detector="hrnet"):
+    detector="hrnet", df_only=False):
     exp_series = {}
     color = 'bisque'
     distortion_types  = [
@@ -266,7 +274,8 @@ def plot_mpjpe_rel_mpjpe(args, exps_list, out_file="rel-mpjpe-compare.png", metr
         title=title,
         out_file=out_file,
         metrics = metrics,
-        plot_bounds=plot_bounds
+        plot_bounds=plot_bounds,
+        df_only=df_only
         )
     return df
 
@@ -281,7 +290,7 @@ def plot_mpjpe_humaneva(args, exps_list, out_file="rel-mpjpe-compare.png", metri
         ('impulse_noise',color),
         ('temporal' ,color),
         ('erase' ,color),
-        # ('crop' ,color),
+        ('crop' ,color),
         ('motion_blur' ,color),
         # ('fog' ,color),
     ]
@@ -437,106 +446,60 @@ def plot_mpjpe_at_t_img_distortion(args):
     exps_list = [
         ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
         "epoch_80",
-        "VP3D on H36M "),
+        "VP3D/H36M "),
         
-        # ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.05-dp_rand_0.2-df0.2-lss_exc_None-conf_None",
-        # "epoch_80",
-        # "VP3D on H36M, $\sigma=0.05, p=20\%, k=20\%$"),
+        ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.05-dp_rand_0.2-df0.2-lss_exc_None-conf_None",
+        "epoch_80",
+        "VP3D/H36M, $\sigma=0.05, p,k=20\%$"),
 
-        # ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.1-dp_rand_0.3-df0.3-lss_exc_None-conf_None",
-        # "epoch_80",
-        # "VP3D on H36M, $\sigma=0.1, p=30\%, k=30\%$"),
+        ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.1-dp_rand_0.3-df0.3-lss_exc_None-conf_None",
+        "epoch_80",
+        "VP3D/H36M, $\sigma=0.1, p,k=30\%$"),
 
         ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_0.5-df0.5-lss_exc_None-conf_None",
         "epoch_80",
-        "VP3D on H36M, $\sigma=0.3, p=50\%, k=50\%$"),
+        "VP3D/H36M, $\sigma=0.3, p,k=50\%$"),
 
-        # ("VideoPose3D-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
-        # "epoch_80",
-        # "VP3D on dist-H36M-imgs"),
+        ("VideoPose3D-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
+        "epoch_80",
+        "VP3D/dist-H36M-imgs"),
     ]
-    plot_mpjpe_rel_mpjpe(args, exps_list, out_file="mpjpe_dist_img_gauss.png", metrics=[0.1] , plot_bounds=[0,1])
+    plot_mpjpe_rel_mpjpe(args, exps_list, out_file="mpjpe_dist_img_gauss.png", metrics=[0.1] , plot_bounds=[0,len(exps_list)-1])
 
 def plot_mpjpe_at_0_1_params_analysis(args):
-
-    exps_list = [
-        ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
-        "epoch_80",
-        "VP3D on H36M "),
-        
-        ("VideoPose3D-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
-        "epoch_80",
-        "VP3D on dist-H36M-imgs"),
-        # --------------------------
-        ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_0.1-df0.5-lss_exc_None-conf_None",
-        "epoch_80",
-        "VP3D on H36M, $\sigma=0.3, p=10\%, k=50\%$"),
-
-        ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_0.3-df0.5-lss_exc_None-conf_None",
-        "epoch_80",
-        "VP3D on H36M, $\sigma=0.3, p=30\%, k=50\%$"),
-
-        ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_0.5-df0.5-lss_exc_None-conf_None",
-        "epoch_80",
-        "VP3D on H36M, $\sigma=0.3, p=50\%, k=50\%$"),
-
-        ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_0.8-df0.5-lss_exc_None-conf_None",
-        "epoch_80",
-        "VP3D on H36M, $\sigma=0.3, p=80\%, k=50\%$"),
-
-        ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_1.0-df0.5-lss_exc_None-conf_None",
-        "epoch_80",
-        "VP3D on H36M, $\sigma=0.3, p=100\%, k=50\%$"),
-    ]
-    df_parts = plot_mpjpe_rel_mpjpe(args, exps_list, out_file="mpjpe_dist_img_gauss_parts_ratio.png", metrics=[0.1] , plot_bounds=[0,1])
-
-    exps_list = [
-        ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
-        "epoch_80",
-        "VP3D on H36M "),
-        
-        ("VideoPose3D-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
-        "epoch_80",
-        "VP3D on dist-H36M-imgs"),
-        # --------------------------
-        
-        ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_0.5-df0.1-lss_exc_None-conf_None",
-        "epoch_80",
-        "VP3D on H36M, $\sigma=0.3, p=50\%, k=10\%$"),
-
-        ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_0.5-df0.3-lss_exc_None-conf_None",
-        "epoch_80",
-        "VP3D on H36M, $\sigma=0.3, p=50\%, k=30\%$"),
-
-        ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_0.5-df0.5-lss_exc_None-conf_None",
-        "epoch_80",
-        "VP3D on H36M, $\sigma=0.3, p=50\%, k=50\%$"),
-
-        ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_0.5-df0.8-lss_exc_None-conf_None",
-        "epoch_80",
-        "VP3D on H36M, $\sigma=0.3, p=50\%, k=80\%$"),
-
-        ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_0.5-df1.0-lss_exc_None-conf_None",
-        "epoch_80",
-        "VP3D on H36M, $\sigma=0.3, p=50\%, k=100\%$"),
-    ]
-    df_frames = plot_mpjpe_rel_mpjpe(args, exps_list, out_file="mpjpe_dist_img_gauss_frames_ratio.png", metrics=[0.1] , plot_bounds=[0,1])
-
     f, axs = plt.subplots(1, 2, figsize=(10,5))
-    axs[0].plot(df_parts['avg_mpjpe'].tolist()[2:],marker='o')
-    axs[1].plot(df_frames['avg_mpjpe'].tolist()[2:],marker='o')
-    tick_labels = [r'$10\%$', r'$30\%$', r'$50\%$', r'$80\%$', r'$100\%$']
+    for i, k in enumerate([0.1, 0.3, 0.5, 0.8, 1.0]):
+        exps_list_parts = []
+        exps_list_frames = []
+        for p in [0.1, 0.3, 0.5, 0.8, 1.0]:
+            exps_list_parts.append(
+                ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_%s-df%s-lss_exc_None-conf_None" % (p, k),
+                "epoch_80",
+                ""),
+            )
+            exps_list_frames.append(
+                ("VideoPose3D-hrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_%s-df%s-lss_exc_None-conf_None" % (k, p),
+                "epoch_80",
+                ""),
+            )
+        df_parts  = plot_mpjpe_rel_mpjpe(args, exps_list_parts, out_file="mpjpe_dist_img_gauss_parts_ratio.png", metrics=[0.1] , plot_bounds=[0,1], df_only=True)
+        df_frames = plot_mpjpe_rel_mpjpe(args, exps_list_frames, out_file="mpjpe_dist_img_gauss_frames_ratio.png", metrics=[0.1] , plot_bounds=[0,1], df_only=True)
+        axs[0].plot(df_parts['avg_mpjpe'].tolist()[::2], marker=markers[i], label="k=%d" % int(k*100) + '%')
+        axs[1].plot(df_frames['avg_mpjpe'].tolist()[::2],marker=markers[i], label="p=%d" % int(k*100) + '%')
     
+    tick_labels = [r'$10\%$', r'$30\%$', r'$50\%$', r'$80\%$', r'$100\%$']
     for i in range(2):
         axs[i].set_xticks(np.arange(len(tick_labels)))
         axs[i].set_xticklabels(tick_labels, fontsize=12)
         axs[i].grid()
-        axs[i].set_ylim(85,125)
+        axs[i].legend(loc='upper left')
+        # axs[i].set_ylim(85,125)
     axs[0].set_ylabel(r"Average MPJPE$_{\leq 0.1}$")
-    axs[0].set_xlabel("(a)")
-    axs[1].set_xlabel("(b)")
+    axs[0].set_xlabel(r"Joints Distortion Ratio p (%)")
+    axs[1].set_xlabel(r"Temporal Distortion Ratio k (%)")
     plt.savefig(osp.join(args.out_folder, "ratio_temp_gauss_params.png"), bbox_inches="tight")
-    plt.savefig(osp.join(args.out_folder, "ratio_temp_gauss_params.pdf"), bbox_inches="tight")
+    # plt.savefig(osp.join(args.out_folder, "ratio_temp_gauss_params.pdf"), bbox_inches="tight")
+    tikzplotlib.save(osp.join(args.out_folder, "ratio_temp_gauss_params.tex"))
 
 def plot_conf_scr_learning(args):
     exps_list = [
@@ -552,6 +515,10 @@ def plot_conf_scr_learning(args):
         # "epoch_80",
         # "VP3D on CLEAN + CONF SCORE hrnet det"),
         
+        ("VideoPose3D-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_det",
+        "epoch_80",
+        "VP3D on MIX-AUG + CONF SCORE hrnet det"),
+
         # ("VideoPose3D-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_det_smthconf",
         # "epoch_80",
         # "VP3D-V0 on MIX-AUG + CONF SCORE NORMALIZED hrnet det"),
@@ -560,21 +527,17 @@ def plot_conf_scr_learning(args):
         "epoch_80",
         "Conf-VP3D-V34 on MIX-AUG gamma=0 hrnet det"),
 
-        ("VideoPose3D-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_det",
-        "epoch_80",
-        "VP3D on MIX-AUG + CONF SCORE hrnet det"),
-
         ("ConfVideoPose3DV34-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_det",
         "epoch_80",
         "Conf-VP3D-V34 on MIX-AUG gamma=1 hrnet det"),
 
-        ("ConfVideoPose3DV34gamma3-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_det",
-        "epoch_80",
-        "Conf-VP3D-V34 on MIX-AUG gamma=3 hrnet det"),
+        # ("ConfVideoPose3DV34gamma3-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_det",
+        # "epoch_80",
+        # "Conf-VP3D-V34 on MIX-AUG gamma=3 hrnet det"),
 
-        ("ConfVideoPose3DV34gamma5-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_det",
-        "epoch_80",
-        "Conf-VP3D-V34 on MIX-AUG gamma=5 hrnet det"),
+        # ("ConfVideoPose3DV34gamma5-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_det",
+        # "epoch_80",
+        # "Conf-VP3D-V34 on MIX-AUG gamma=5 hrnet det"),
     ]
     plot_mpjpe_rel_mpjpe(args, exps_list, out_file="mpjpe_dist_img_conf_scr.png", metrics=[0.1], plot_bounds=[0])
 
@@ -767,26 +730,24 @@ def plot_srnet(args):
 def plot_humaneva(args):
     exps_list = [
         ("VideoPose3D-humaneva_hrnet_clean-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
-        "epoch_80",
+        "epoch_1000",
         "SRNet (27 frames) on CLEAN hrnet det"),
-        # ("VideoPose3D-humaneva_hrnet_clean-a3,3,3-b1024-dj_gauss_0.1-dp_rand_0.5-df0.5-lss_exc_None-conf_None",
-        # "epoch_80",
-        # "SRNet (27 frames) on H36M, $\sigma=0.3, p=30\%, k=50\%$"), 
+        
         ("VideoPose3D-humaneva_hrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_0.1-df0.1-lss_exc_None-conf_None",
-        "epoch_80",
+        "epoch_1000",
         "SRNet (27 frames) on H36M, $\sigma=0.3, p=30\%, k=50\%$"), 
         
-        # ("VideoPose3D-humaneva_hrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_0.1-df0.3-lss_exc_None-conf_None",
+        ("VideoPose3D-humaneva_hrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_0.3-df0.05-lss_exc_None-conf_None",
+        "epoch_1000",
+        "SRNet (27 frames) on H36M, $\sigma=0.3, p=30\%, k=50\%$"), 
+
+        # ("VideoPose3D-humaneva_hrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_0.5-df0.5-lss_exc_None-conf_None",
+        # "epoch_1000",
+        # "SRNet (27 frames) on H36M, $\sigma=0.3, p=30\%, k=50\%$"),
+
+        # ("VideoPose3D-humaneva_hrnet_clean-a3,3,3-b1024-dj_gauss_0.5-dp_rand_0.05-df0.1-lss_exc_None-conf_None",
         # "epoch_80",
-        # "SRNet (27 frames) on H36M, $\sigma=0.3, p=30\%, k=50\%$"), 
-
-        ("VideoPose3D-humaneva_hrnet_clean-a3,3,3-b1024-dj_gauss_0.3-dp_rand_0.05-df0.1-lss_exc_None-conf_None",
-        "epoch_80",
-        "SRNet (27 frames) on H36M, $\sigma=0.3, p=30\%, k=50\%$"),
-
-        ("VideoPose3D-humaneva_hrnet_clean-a3,3,3-b1024-dj_gauss_0.5-dp_rand_0.05-df0.1-lss_exc_None-conf_None",
-        "epoch_80",
-        "SRNet (27 frames) on H36M, $\sigma=0.3, p=30\%, k=50\%$")
+        # "SRNet (27 frames) on H36M, $\sigma=0.3, p=30\%, k=50\%$")
 
         # ("SRNet-hrnet_mix-a3,3,3-b1024-dj_None-dp_None-dfNone-lss_exc_None-conf_None",
         # "epoch_80",
@@ -797,7 +758,7 @@ def plot_humaneva(args):
 def main(args):
     # plot_dist_kpts(args)    
     # plot_dist_imgs(args)
-    # plot_mpjpe_at_t_img_distortion(args)
+    plot_mpjpe_at_t_img_distortion(args)
     # plot_conf_scr_learning(args)
     # plot_mpjpe_at_0_1_params_analysis(args)
     # plot_receptive_field(args)
@@ -805,7 +766,8 @@ def main(args):
     # plot_poseformer(args)
     # plot_attention3dhp(args)
     # plot_srnet(args)
-    plot_humaneva(args)
+    # plot_humaneva(args)
+
 if __name__ == "__main__":
     args = parse_args()
     main(args)
