@@ -44,7 +44,7 @@ try: # Try CUDA extension
     from extensions.cauchy.cauchy import cauchy_mult
     has_cauchy_extension = True
 except:
-    log.warning(
+    print(
         "CUDA extension for cauchy multiplication not found. Install by going to extensions/cauchy/ and running `python setup.py install`. This should speed up end-to-end training by 10-50%"
     )
     has_cauchy_extension = False
@@ -53,7 +53,7 @@ try: # Try pykeops
     import pykeops
     from pykeops.torch import Genred
     has_pykeops = True
-    log.info("Pykeops installation found.")
+    print("Pykeops installation found.")
 
     def _broadcast_dims(*tensors):
         max_dim = max([len(tensor.shape) for tensor in tensors])
@@ -142,7 +142,7 @@ try: # Try pykeops
 except ImportError:
     has_pykeops = False
     if not has_cauchy_extension:
-        log.warning(
+        print(
             "Falling back on slow Cauchy kernel. Install at least one of pykeops or the CUDA extension for efficiency."
         )
         def cauchy_naive(v, z, w):
@@ -566,10 +566,10 @@ class SSKernelNPLR(OptimModule):
         """
 
         if self.L.item() == 0:
-            if self.verbose: log.info(f"S4: Initializing kernel to length {L}")
+            if self.verbose: print(f"S4: Initializing kernel to length {L}")
             double_length = False
         elif L > self.L.item(): # 2*int(self.L) == L:
-            if self.verbose: log.info(f"S4: Doubling length from L = {self.L.item()} to {2*self.L.item()}")
+            if self.verbose: print(f"S4: Doubling length from L = {self.L.item()} to {2*self.L.item()}")
             double_length = True
             L = self.L.item() # Convenience for the math below
         else: return
@@ -1304,7 +1304,7 @@ class SSKernel(nn.Module):
             )
         elif mode == "diag":
             if not measure.startswith("diag"):
-                log.warning("Diagonal kernel (S4D) activated but initialization is not intended for S4D. Set `measure` to 'diag-lin', 'diag-inv', or 'diag-legs' for the main variants, or 'diag' for a combination of S4D-Lin and S4D-Inv.")
+                print("Diagonal kernel (S4D) activated but initialization is not intended for S4D. Set `measure` to 'diag-lin', 'diag-inv', or 'diag-legs' for the main variants, or 'diag' for a combination of S4D-Lin and S4D-Inv.")
             C = C * repeat(B, 't n -> (v t) n', v=H//self.n_ssm)
             self.kernel = SSKernelDiag(
                 w, B, C, log_dt, L=L,
@@ -1404,7 +1404,7 @@ class S4(nn.Module):
 
         super().__init__()
         if verbose:
-            log.info(f"Constructing S4 (H, N, L) = ({d_model}, {d_state}, {l_max})")
+            print(f"Constructing S4 (H, N, L) = ({d_model}, {d_state}, {l_max})")
 
         self.d_model = d_model
         self.H = d_model
