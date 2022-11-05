@@ -10,7 +10,7 @@ if torch.cuda.is_available() and CUDA_HOME is not None:
             'cauchy.cpp',
             'cauchy_cuda.cu',
         ],
-        extra_compile_args={'cxx': ['-g', '-march=native', '-funroll-loops'],
+        extra_compile_args={'cxx': ['-g', '-mcpu=native', '-funroll-loops'],
                             # 'nvcc': ['-O2', '-lineinfo']
                             'nvcc': ['-O2', '-lineinfo', '--use_fast_math']
                             }
