@@ -4,6 +4,8 @@ plots/
 checkpoint/
 inference/
 eval_results/
+cauchy_mult.egg-info/
+build/
 output.gif
 output.mp4
 test.png
