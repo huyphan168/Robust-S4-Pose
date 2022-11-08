@@ -1,0 +1,10 @@
+bidirectional: True
+wandb_name: s4block_baseline
+channels: 64
+architecture: '3,3,3' 
+stride: 1
+gpu: '3'
+model: S4Block
+batch_size: 1024
+checkpoint: 'checkpoint/s4block_baseline/'
+checkpoint_frequency: 5

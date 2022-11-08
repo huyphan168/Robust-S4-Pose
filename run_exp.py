@@ -82,9 +82,15 @@ model_pos, model_pos_train, checkpoint = initialize_model(args,
 
 model_traj = None
 # Generate test data
-receptive_field = model_pos.receptive_field()
+if hasattr(model_pos, 'receptive_field'):
+    receptive_field = model_pos.receptive_field()
+    pad = (receptive_field-1)//2 # Padding on each side
+else:
+    receptive_field = 1
+    for i in args.architecture.split(','):
+        receptive_field *= int(i)
+        pad = (receptive_field-1)//2
 print('INFO: Receptive field: {} frames'.format(receptive_field))
-pad = (receptive_field - 1) // 2 # Padding on each side
 
 if args.causal:
     print('INFO: Using causal convolutions')
@@ -105,6 +111,9 @@ print('INFO: Testing on {} frames'.format(test_generator.num_frames()))
 ################### TRAINING ###################
 if not args.evaluate:
     # Prepare log dir
+    import wandb
+    wandb.init(project="robustvp3d", name=args.wandb_name, config=args)
+
     logging.basicConfig(filename= #"test.log",
     osp.join(args.checkpoint, "%s.log" % datetime.datetime.now()),
     filemode='a',
@@ -191,6 +200,7 @@ if not args.evaluate:
             loss_total = loss_3d_pos
             loss_total.backward()
             optimizer.step()
+            wandb.log({"loss_3d_pos": loss_3d_pos.item()*1000})
 
         losses_3d_train.append(epoch_loss_3d_train / N)
 
@@ -224,7 +234,11 @@ if not args.evaluate:
                     # Select joints for evaluation
                     predicted_3d_pos = inp_distr.get_eval_joints(predicted_3d_pos)
                     inputs_3d        = inp_distr.get_eval_joints(inputs_3d)         
-                    loss_3d_pos = mpjpe(predicted_3d_pos, inputs_3d)
+                    try:
+                        loss_3d_pos = mpjpe(predicted_3d_pos, inputs_3d)
+                    except:
+                        import ipdb; ipdb.set_trace()
+                        loss_3d_pos = mpjpe(predicted_3d_pos[:, :inputs_3d.shape[1]], inputs_3d)
                     epoch_loss_3d_valid += inputs_3d.shape[0]*inputs_3d.shape[1] * loss_3d_pos.item()
                     N += inputs_3d.shape[0]*inputs_3d.shape[1]
 
@@ -264,7 +278,7 @@ if not args.evaluate:
                 #     N += inputs_3d.shape[0]*inputs_3d.shape[1]
 
                 losses_3d_train_eval.append(epoch_loss_3d_train_eval / N)
-
+                wandb.log({"loss_3d_pos_valid": losses_3d_valid[-1]*1000})
                 # Evaluate 2D loss on unlabeled training set (in evaluation mode)
                 epoch_loss_2d_train_unlabeled_eval = 0
                 N_semi = 0
@@ -293,11 +307,11 @@ if not args.evaluate:
         epoch += 1
         
         # Decay BatchNorm momentum
-        momentum = initial_momentum * np.exp(-epoch/args.epochs * np.log(initial_momentum/final_momentum))
-        if args.parallel:
-            set_momentum(model_pos_train, momentum)
-        else:
-            model_pos_train.set_bn_momentum(momentum)
+        # momentum = initial_momentum * np.exp(-epoch/args.epochs * np.log(initial_momentum/final_momentum))
+        # if args.parallel:
+        #     set_momentum(model_pos_train, momentum)
+        # else:
+        #     model_pos_train.set_bn_momentum(momentum)
             
         # Save checkpoint if necessary
         def save_ckpt(chk_path):

@@ -6,6 +6,7 @@ inference/
 eval_results/
 cauchy_mult.egg-info/
 build/
+wandb/
 output.gif
 output.mp4
 test.png

@@ -19,6 +19,7 @@ def decode(filename):
     # Latin1 encoding because Detectron runs on Python 2.7
     print('Processing {}'.format(filename))
     data = np.load(filename, encoding='latin1', allow_pickle=True)
+    import ipdb; ipdb.set_trace()
     bb = data['boxes']
     kp = data['keypoints']
     metadata = data['metadata'].item()

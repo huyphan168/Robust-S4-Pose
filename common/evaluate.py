@@ -18,8 +18,7 @@ def evaluate(model_pos, test_generator, inp_distr, dtf, model_traj = None, actio
         else:
             model_traj.eval()
         N = 0
-    
-        for _, batch, batch_2d in test_generator.next_epoch():
+        for (_, batch, batch_2d, _) in test_generator.next_epoch():
             inputs_2d = torch.from_numpy(batch_2d.astype('float32'))
             if batch is not None:
                 inputs_3d = torch.from_numpy(batch.astype('float32'))
@@ -67,7 +66,6 @@ def evaluate(model_pos, test_generator, inp_distr, dtf, model_traj = None, actio
                 inputs_3d        = inp_distr.get_eval_joints(inputs_3d)
                 eval_msk         = None
                 n_frames         = inputs_3d.shape[0]*inputs_3d.shape[1]
-
             error = mpjpe(predicted_3d_pos, inputs_3d, eval_msk=eval_msk)
             epoch_loss_3d_pos_scale +=  n_frames * n_mpjpe(predicted_3d_pos, inputs_3d).item()
 
@@ -102,7 +100,15 @@ def run_evaluation(model_pos, actions, args,  dtf, inp_distr,  action_filter=Non
     errors_vel = []
     actions_name = []
 
-    pad = (model_pos.receptive_field() - 1) // 2 # Padding on each side
+    # pad = (model_pos.receptive_field() - 1) // 2 # Padding on each side
+    if hasattr(model_pos, 'receptive_field'):
+        receptive_field = model_pos.receptive_field()
+        pad = (receptive_field-1)//2 # Padding on each side
+    else:
+        receptive_field = 1
+        for i in args.architecture.split(','):
+            receptive_field *= int(i)
+            pad = (receptive_field-1)//2
     causal_shift = pad if args.causal else 0
     for action_key in actions.keys():
         
@@ -157,6 +163,7 @@ def run_evaluation(model_pos, actions, args,  dtf, inp_distr,  action_filter=Non
         'mpjve'  : errors_vel
         })
     fold_name = osp.join("eval_results", osp.basename(args.checkpoint))
+    import os
     os.makedirs(fold_name, exist_ok=True)
     file_name = osp.join(fold_name, "%s%s_%s_%s_%s%s.csv" % (
         args.evaluate.split('.')[0],

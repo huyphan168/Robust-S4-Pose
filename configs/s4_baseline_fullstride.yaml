@@ -1,0 +1,9 @@
+bidirectional: True
+wandb_name: s4_baseline_fullstride
+num_layers: 8
+channels: 512
+architecture: '3,3,3,3,3' 
+stride: 243
+gpu: '2'
+batch_size: 1028
+checkpoint: 'checkpoint/s4_baseline_fullstride_243/'

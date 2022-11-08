@@ -55,27 +55,6 @@ def parse_args():
     parser.add_argument('-ch', '--channels', default=1024, type=int, metavar='N', help='number of channels in convolution layers')
 
 
-    ### SRNet arguments
-    ### split features
-    parser.add_argument('-mo', '--modulation', default=False,
-                        help='Use modulation module for temporal mask self-attention multiply the whole channel [all joint inputs]')
-    parser.add_argument('--group-modulation', default=False,
-                        help='Use modulation module for multiply each group as local attention [group-wise joint inputs]')
-    parser.add_argument('--split-modulation', default=True,
-                        help='Use modulation module multiply each group as global attention [except local joint inputs]')
-    parser.add_argument('--channelwise', default=False,
-                        help='Use modulation module multiply each group with channel-wise attention [all joint inputs]')
-    ### recombine feature source
-
-    parser.add_argument('--split', choices=['all', 'others', 'none'], type=str,
-                        help='way of feature split', default='others')
-    ### recombine operators
-    parser.add_argument('--recombine', choices=['multiply', 'add', 'concat'], type=str,
-                        help='way of low-dimension global features and local feature recombination', default='multiply')
-    parser.add_argument('--mean-func', default=False, help='Use mean function [other joint inputs]')
-    parser.add_argument('--repeat-concat', default=False,
-                        help='Use [repeat number] concatenate for fusion group feature and other joint features, if True, --concat must be True')
-    parser.add_argument('--ups-mean', default=False, help='Use flexible mean function [other joint inputs]')
     # Group number
     parser.add_argument('--group', type=int, default=5, metavar='N', help='Guide the group strategies',choices=[1,2,3,5])
     #### Data normalization
@@ -127,6 +106,13 @@ def parse_args():
     # Eval filter
     parser.add_argument('--loss-ignore-parts', type=str, default='None')
     parser.add_argument('--eval-ignore-parts', type=str, default='None')
+
+    #S4 params
+    parser.add_argument('--num_layers', type=int, default=3, help='number of layers of S4 sequencer')
+    parser.add_argument('--bidirectional', type=bool, help='use bidirectional S4 sequencer')
+    
+    #wandb
+    parser.add_argument('--wandb-name', type=str, default='robustvp3d', help='wandb name')
 
 
     args = parser.parse_args()

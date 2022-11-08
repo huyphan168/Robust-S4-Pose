@@ -1,0 +1,10 @@
+bidirectional: True
+wandb_name: s4_baseline_81_single
+num_layers: 1
+channels: 256
+architecture: '3,3,3,3' 
+stride: 1
+gpu: '1'
+batch_size: 1024
+checkpoint: 'checkpoint/s4_baseline_single/'
+checkpoint_frequency: 5

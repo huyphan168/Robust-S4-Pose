@@ -1,0 +1,9 @@
+bidirectional: True
+wandb_name: s4_baseline_512
+num_layers: 8
+channels: 512
+architecture: '3,3,3' 
+stride: 27
+gpu: '1'
+batch_size: 1024
+checkpoint: 'checkpoint/s4_baseline_512_8layer/'
